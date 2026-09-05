@@ -296,3 +296,22 @@ def test_kb_and_admin_status_loaded_match(root):
     assert kb["loaded"] == admin["loaded"]
     assert kb["document_count"] == admin["document_count"]
     assert "last_folder" not in kb
+
+
+def test_openapi_includes_wire_field_names(root):
+    spec = _client().get("/openapi.json").json()
+    blob = str(spec)
+    for needle in (
+        "document_id",
+        "source",
+        "category",
+        "pdf_available",
+        "queued",
+        "routing",
+        "running",
+        "merging",
+        "formatting",
+        "completed",
+        "failed",
+    ):
+        assert needle in blob, needle
