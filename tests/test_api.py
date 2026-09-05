@@ -298,6 +298,29 @@ def test_kb_and_admin_status_loaded_match(root):
     assert "last_folder" not in kb
 
 
+def test_combined_spa_serves_index_without_hiding_api(root, tmp_path, monkeypatch):
+    ui = tmp_path / "ui"
+    ui.mkdir()
+    (ui / "index.html").write_text("<html>Pactlify UI</html>", encoding="utf-8")
+    assets = ui / "assets"
+    assets.mkdir()
+    (assets / "app.js").write_text("console.log('ok')", encoding="utf-8")
+    monkeypatch.setenv("STATIC_DIR", str(ui))
+    client = _client()
+    home = client.get("/")
+    assert home.status_code == 200
+    assert "Pactlify UI" in home.text
+    client_page = client.get("/client")
+    assert client_page.status_code == 200
+    assert "Pactlify UI" in client_page.text
+    asset = client.get("/assets/app.js")
+    assert asset.status_code == 200
+    assert "console.log" in asset.text
+    kb = client.get("/kb")
+    assert kb.status_code == 200
+    assert kb.json()["loaded"] is False
+
+
 def test_openapi_includes_wire_field_names(root):
     spec = _client().get("/openapi.json").json()
     blob = str(spec)

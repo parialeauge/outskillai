@@ -1,0 +1,19 @@
+# Pactlify API — Python 3.11+
+#   python3 -m pip install -r requirements.txt
+# Then from this directory:
+#   python3 -m pip install -e .
+
+fastapi==0.141.1
+uvicorn[standard]==0.30.5
+lancedb==0.25.3
+sentence-transformers==6.0.1
+langgraph==1.2.11
+langchain-openai==1.6.0
+httpx==0.28.1
+pymupdf==1.28.2
+pandas==3.0.5
+python-dotenv==1.2.3
+pydantic==2.13.4
+tavily-python==0.8.1
+weasyprint==69.0
+reportlab==5.0.1
