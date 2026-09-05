@@ -34,3 +34,14 @@ def test_routing_failure_activates_both_before_general_exists():
         raise RuntimeError("down")
 
     assert route("anything", built={"pm", "financial"}, chat_sync=chat_sync) == FIRST_SLICE_FALLBACK
+
+
+def test_routing_failure_activates_general_when_built():
+    def chat_sync(messages, **kwargs):
+        raise RuntimeError("down")
+
+    assert route(
+        "anything",
+        built={"pm", "financial", "capex", "general"},
+        chat_sync=chat_sync,
+    ) == ["general"]

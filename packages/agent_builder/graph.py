@@ -3,7 +3,9 @@ from __future__ import annotations
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 
+from packages.agent_builder.capex_agent import run_capex
 from packages.agent_builder.financial_agent import run_financial
+from packages.agent_builder.general_agent import run_general
 from packages.agent_builder.parent_agent import ACTIVATION_ORDER, route
 from packages.agent_builder.pm_agent import run_pm
 from packages.agent_builder.specialist import failed_payload, run_with_timeout
@@ -13,6 +15,8 @@ from shared.config import AGENT_TIMEOUT, JOB_TIMEOUT
 DEFAULT_AGENTS = {
     "financial": run_financial,
     "pm": run_pm,
+    "capex": run_capex,
+    "general": run_general,
 }
 
 
