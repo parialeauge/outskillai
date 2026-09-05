@@ -17,6 +17,7 @@ class ChunkMetadata(BaseModel):
     row_end: int | None = None
     relevance: float = 0.0
     cross_category: bool = False
+    overridden: bool = False
 
 
 class Chunk(BaseModel):

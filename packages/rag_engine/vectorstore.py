@@ -82,6 +82,7 @@ def _row(chunk: Chunk, vector: list[float]) -> dict[str, Any]:
         "row_start": meta.row_start,
         "row_end": meta.row_end,
         "cross_category": bool(meta.cross_category),
+        "overridden": bool(meta.overridden),
     }
 
 
@@ -101,5 +102,35 @@ def _from_row(row: dict[str, Any]) -> Chunk:
             row_end=row.get("row_end"),
             relevance=relevance,
             cross_category=bool(row.get("cross_category", False)),
+            overridden=bool(row.get("overridden", False)),
         ),
     )
+
+
+def update_document_category(handle: TableHandle, document_id: str, category: str) -> int:
+    result = handle.table.update(
+        where=sql_where("document_id", [document_id]),
+        values={"category": category, "overridden": True},
+    )
+    return int(getattr(result, "rows_updated", 0))
+
+
+def documents_from_handle(handle: TableHandle) -> list:
+    from packages.rag_engine.types import DocumentInfo
+
+    frame = handle.table.to_pandas()
+    docs: dict[str, DocumentInfo] = {}
+    for row in frame.to_dict(orient="records"):
+        document_id = row["document_id"]
+        if document_id not in docs:
+            docs[document_id] = DocumentInfo(
+                document_id=document_id,
+                source=row["source"],
+                type=row["type"],
+                chunk_count=0,
+                auto_category=row["auto_category"],
+                category=row["category"],
+                overridden=bool(row.get("overridden", False)),
+            )
+        docs[document_id].chunk_count += 1
+    return list(docs.values())
