@@ -1,0 +1,40 @@
+{
+  "documents": [
+    {
+      "document_id": "doc_mixed_brief",
+      "source": "mixed_brief.pdf",
+      "type": "pdf",
+      "chunk_count": 4,
+      "auto_category": "financial",
+      "category": "financial",
+      "overridden": false
+    },
+    {
+      "document_id": "doc_charter",
+      "source": "charter.pdf",
+      "type": "pdf",
+      "chunk_count": 3,
+      "auto_category": "pm",
+      "category": "pm",
+      "overridden": false
+    },
+    {
+      "document_id": "doc_budget",
+      "source": "budget.csv",
+      "type": "csv",
+      "chunk_count": 2,
+      "auto_category": "financial",
+      "category": "policy",
+      "overridden": true
+    },
+    {
+      "document_id": "doc_urls",
+      "source": "urls.txt",
+      "type": "web",
+      "chunk_count": 1,
+      "auto_category": "uncategorized",
+      "category": "uncategorized",
+      "overridden": false
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "loaded": true,
+  "last_folder": "/allowed/sample_data",
+  "document_count": 4,
+  "chunk_count": 10,
+  "failed_files": [{ "name": "bad.pdf", "reason": "unreadable" }],
+  "failed_urls": [{ "url": "https://example.invalid", "reason": "timeout" }]
+}

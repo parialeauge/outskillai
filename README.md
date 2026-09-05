@@ -13,7 +13,19 @@ uvicorn apps.api.main:app --workers 1
 
 Use **one worker**. The knowledge base and job registry are in-process.
 
-Frontend (when built) talks to `http://localhost:8000` by default.
+## Frontend
+
+```bash
+cd frontend
+cp .env.example .env
+npm install
+npm run dev
+```
+
+Vite serves `http://localhost:5173`. Routes: `/` landing, `/client`, `/admin`. Default API base is `http://localhost:8000`. Set `VITE_USE_FIXTURES=true` to run the UI against `src/fixtures` without the backend.
+
+Admin paste path: `<ALLOWED_INGEST_ROOT>/sample_data`. Prompted `ADMIN_TOKEN` is sent only on `/admin/*`.
+
 
 ## Environment
 

@@ -1,0 +1,286 @@
+:root {
+  --paper: #F7F7F5;
+  --forest: #1A3C2B;
+  --ink: #1A3C2B;
+  --hairline: 1px solid var(--forest);
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+html, body, #root {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-display);
+  box-shadow: none;
+  margin: 0;
+  min-height: 100%;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea {
+  font-family: inherit;
+}
+
+.btn-primary {
+  background: var(--forest);
+  color: var(--paper);
+  border: var(--hairline);
+  box-shadow: none;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.chrome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  border-bottom: var(--hairline);
+  background: var(--paper);
+  box-shadow: none;
+}
+
+.wordmark {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-size: 1.15rem;
+}
+
+.toggle {
+  display: flex;
+  border: var(--hairline);
+}
+
+.toggle a {
+  padding: 0.4rem 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.toggle a.active {
+  background: var(--forest);
+  color: var(--paper);
+}
+
+.kb-chip {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: var(--hairline);
+  padding: 0.35rem 0.7rem;
+  box-shadow: none;
+}
+
+.page {
+  padding: 1.5rem;
+}
+
+.hero-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  margin: 0 0 0.75rem;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+  line-height: 1.1;
+}
+
+.hero p {
+  margin: 0 0 1.5rem;
+  max-width: 36rem;
+}
+
+.bento {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.tile {
+  border: var(--hairline);
+  padding: 1.1rem;
+  min-height: 7.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: none;
+  background: var(--paper);
+}
+
+.tile.large {
+  grid-column: span 2;
+  min-height: 10rem;
+}
+
+.tile .eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.footer-strip {
+  margin-top: 1.5rem;
+  border-top: var(--hairline);
+  padding-top: 0.85rem;
+  font-size: 0.9rem;
+}
+
+.client-layout {
+  display: grid;
+  grid-template-columns: 36% 64%;
+  min-height: calc(100vh - 57px);
+}
+
+.client-left,
+.client-right {
+  padding: 1.25rem;
+}
+
+.client-left {
+  border-right: var(--hairline);
+}
+
+.query-field {
+  width: 100%;
+  min-height: 9rem;
+  border: var(--hairline);
+  background: var(--paper);
+  color: var(--ink);
+  padding: 0.75rem;
+  resize: vertical;
+  box-shadow: none;
+}
+
+.btn-primary {
+  margin-top: 0.75rem;
+  padding: 0.65rem 1.1rem;
+  cursor: pointer;
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.helper,
+.inline-error {
+  font-size: 0.9rem;
+  margin-top: 0.75rem;
+}
+
+.inline-error {
+  color: var(--forest);
+}
+
+.status-label {
+  font-family: var(--font-mono);
+  letter-spacing: 0.12em;
+  font-size: 0.8rem;
+  margin: 0 0 0.75rem;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: var(--hairline);
+  margin-bottom: 1rem;
+}
+
+.tabs button {
+  background: transparent;
+  border: 0;
+  border-right: var(--hairline);
+  padding: 0.55rem 0.9rem;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.tabs button.active {
+  background: var(--forest);
+  color: var(--paper);
+}
+
+.banner {
+  border: var(--hairline);
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.9rem;
+}
+
+.answer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.section-block {
+  border-top: var(--hairline);
+  padding-top: 0.85rem;
+  margin-top: 0.85rem;
+}
+
+.cite {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  border: var(--hairline);
+  padding: 0.1rem 0.35rem;
+  margin-right: 0.35rem;
+  cursor: pointer;
+  background: transparent;
+  color: var(--ink);
+  box-shadow: none;
+}
+
+.cross {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  border: var(--hairline);
+  padding: 0.05rem 0.3rem;
+  margin-left: 0.35rem;
+}
+
+.timeline-row,
+.source-row {
+  border: var(--hairline);
+  padding: 0.75rem;
+  margin-bottom: 0.6rem;
+  box-shadow: none;
+}
+
+.source-row.highlight {
+  outline: 2px solid var(--forest);
+}
+
+.quote {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+}
+
