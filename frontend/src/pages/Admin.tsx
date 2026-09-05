@@ -55,9 +55,10 @@ export default function Admin() {
     setBusy(true);
     setError(null);
     try {
-      const body = stamp ? { folder_path: folder, category: stamp } : { folder_path: folder };
+      const path = folder.trim();
+      const body = stamp ? { folder_path: path, category: stamp } : { folder_path: path };
       const result = await ingest(body);
-      replaceFromIngest(result, folder);
+      replaceFromIngest(result, path);
       await getKb();
     } catch (caught) {
       if (isApiError(caught) && caught.status === 401) {
@@ -96,19 +97,24 @@ export default function Admin() {
   return (
     <div className="admin-body">
       <h1>Load a folder</h1>
-      <p className="desc">Optional stamp, then a server folder path. Table is in-memory; restart needs the path again.</p>
-      <CategoryCards selected={stamp} onSelect={setStamp} />
+      <p className="desc">Server folder path first, then an optional stamp. Table is in-memory; restart needs the path again.</p>
       <div className="upload-panel">
         <label>
           Folder path
-          <input type="text" value={folder} onChange={(event) => setFolder(event.target.value)} />
+          <input
+            type="text"
+            value={folder}
+            onChange={(event) => setFolder(event.target.value)}
+            placeholder="/absolute/path/to/outskillai/sample_data"
+          />
         </label>
-        <button className="btn-primary" type="button" disabled={busy || !folder} onClick={() => void submit()}>
+        <button className="btn-primary" type="button" disabled={busy || !folder.trim()} onClick={() => void submit()}>
           {busy ? "Loading…" : "Submit"}
         </button>
-        <p className="note">Auto-detect omits category. Never send uncategorized.</p>
+        <p className="note">Auto-detect omits category. Never send uncategorized. Top-level pdf/csv/txt only.</p>
         {error ? <p className="fail-list">{error}</p> : null}
       </div>
+      <CategoryCards selected={stamp} onSelect={setStamp} />
       <DocumentTable
         documents={store.documents}
         failedFiles={store.failed_files}

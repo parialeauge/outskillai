@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 import re
 import threading
+import time
 from typing import Any, Callable
 
-from shared.config import AGENT_TIMEOUT
+from shared.config import LLM_TIMEOUT
+from shared.schemas import SPECIALIST_FORMAT
+from packages.rag_engine.types import Chunk, ChunkMetadata
 
 TITLES = {
     "financial": "Financial",
@@ -39,7 +42,7 @@ def run_specialist(
     web_search=None,
     live_web_if_empty: bool = True,
     live_web_if_thin: int | None = None,
-    timeout: float = AGENT_TIMEOUT,
+    timeout: float = 0,
 ) -> dict:
     def work() -> dict:
         return _run_body(
@@ -86,7 +89,7 @@ def _run_body(
         from packages.agent_builder.web import search_live_web as searcher
 
     query = str(state.get("query") or "")
-    sub_question = _rewrite(name, query, llm, warnings)
+    sub_question = _rewrite(name, query, llm, warnings, state)
     result = retriever(
         state.get("knowledge_base_id", "shared"),
         sub_question,
@@ -95,7 +98,6 @@ def _run_body(
     )
     chunks = list(getattr(result, "chunks", None) or [])
     primary_count = int(getattr(result, "primary_count", 0) or 0)
-    handed_ids = [chunk.chunk_id for chunk in chunks]
 
     used_live_web = should_search_live_web(
         primary_count,
@@ -103,7 +105,7 @@ def _run_body(
         live_web_if_thin=live_web_if_thin,
         needs_current_info=bool(state.get("needs_current_info")),
     )
-    web_hits: list[str] = []
+    web_hits: list = []
     if used_live_web:
         try:
             web_hits = list(searcher(sub_question) or [])
@@ -111,8 +113,15 @@ def _run_body(
             warnings.append(f"{name}: live web failed: {error}")
             used_live_web = False
 
-    synthesis = _synthesize(name, query, chunks, web_hits, llm, warnings)
-    used_chunk_ids = [chunk_id for chunk_id in synthesis["used_chunk_ids"] if chunk_id in handed_ids]
+    web_chunks = _web_chunks(web_hits, category)
+    handed = chunks + web_chunks
+    handed_ids = [chunk.chunk_id for chunk in handed]
+    synthesis = _synthesize(name, query, handed, [], llm, warnings, state)
+    used = list(synthesis["used_chunk_ids"])
+    for web_id in synthesis.get("web_ids") or []:
+        if web_id not in used:
+            used.append(web_id)
+    used_chunk_ids = [chunk_id for chunk_id in used if chunk_id in handed_ids]
     title = TITLES.get(name, name)
     finding = {
         "agent": name,
@@ -122,7 +131,7 @@ def _run_body(
         "key_points": synthesis["key_points"],
         "evidence": synthesis["evidence"],
         "used_chunk_ids": used_chunk_ids,
-        "chunks": chunks,
+        "chunks": handed,
     }
     event = {
         "agent": name,
@@ -137,6 +146,16 @@ def _run_body(
         "timeline_events": [event],
         "warnings": warnings,
     }
+
+
+def remaining_timeout(state: dict | None = None, *, cap: float = LLM_TIMEOUT) -> float:
+    deadline = (state or {}).get("deadline")
+    if deadline is None:
+        return cap
+    left = float(deadline) - time.monotonic()
+    if left <= 0:
+        raise TimeoutError("deadline exceeded")
+    return min(cap, left)
 
 
 def run_with_timeout(fn: Callable[[], Any], timeout: float) -> Any:
@@ -175,7 +194,7 @@ def failed_payload(name: str, error: str) -> dict:
     }
 
 
-def _rewrite(name: str, query: str, chat_sync: Callable[..., str], warnings: list[str]) -> str:
+def _rewrite(name: str, query: str, chat_sync: Callable[..., str], warnings: list[str], state: dict) -> str:
     try:
         rewritten = chat_sync(
             [
@@ -184,7 +203,8 @@ def _rewrite(name: str, query: str, chat_sync: Callable[..., str], warnings: lis
                     "content": f"Rewrite the user question as a focused {name} sub-question. Reply with the sub-question only.",
                 },
                 {"role": "user", "content": query},
-            ]
+            ],
+            timeout=remaining_timeout(state),
         ).strip()
         return rewritten or query
     except Exception as error:
@@ -199,6 +219,7 @@ def _synthesize(
     web_hits: list[str],
     chat_sync: Callable[..., str],
     warnings: list[str],
+    state: dict,
 ) -> dict[str, Any]:
     context = _context_block(chunks, web_hits)
     try:
@@ -211,11 +232,13 @@ def _synthesize(
                         "Use only the evidence. Label off-domain chunks as related material from outside this domain. "
                         "Label live-web hits as web sources. "
                         'Reply JSON: {"summary": str, "body": str, "key_points": [str], '
-                        '"evidence": [str], "used_chunk_ids": [str]}.'
+                        '"evidence": [str], "used_chunk_ids": [str], "web_ids": [str]}.'
                     ),
                 },
                 {"role": "user", "content": f"Question: {query}\n\nEvidence:\n{context}"},
-            ]
+            ],
+            response_format=SPECIALIST_FORMAT,
+            timeout=remaining_timeout(state),
         )
         parsed = _parse_synthesis(raw)
     except Exception as error:
@@ -226,6 +249,10 @@ def _synthesize(
     if not isinstance(used, list):
         used = []
     used = [str(item) for item in used]
+    web_ids = parsed.get("web_ids") or []
+    if not isinstance(web_ids, list):
+        web_ids = [str(web_ids)]
+    web_ids = [str(item) for item in web_ids]
     summary = str(parsed.get("summary") or "")
     body = str(parsed.get("body") or summary)
     key_points = parsed.get("key_points") or []
@@ -240,20 +267,54 @@ def _synthesize(
         "key_points": [str(point) for point in key_points],
         "evidence": [str(item) for item in evidence],
         "used_chunk_ids": used if used else handed,
+        "web_ids": web_ids,
     }
 
 
-def _context_block(chunks: list, web_hits: list[str]) -> str:
+def _web_chunks(hits: list, category: str | list[str]) -> list[Chunk]:
+    label = category if isinstance(category, str) else "uncategorized"
+    if label not in {"financial", "pm", "capex", "policy", "uncategorized"}:
+        label = "uncategorized"
+    chunks: list[Chunk] = []
+    for index, hit in enumerate(hits, start=1):
+        if isinstance(hit, str):
+            source, content = "live web", hit
+        elif isinstance(hit, dict):
+            source = str(hit.get("url") or hit.get("source") or "live web")
+            content = str(hit.get("content") or hit.get("snippet") or "")
+        else:
+            continue
+        if not str(content).strip():
+            continue
+        chunks.append(
+            Chunk(
+                chunk_id=f"web_{index}",
+                content=str(content),
+                metadata=ChunkMetadata(
+                    document_id="live_web",
+                    source=source,
+                    type="web",
+                    category=label,  # type: ignore[arg-type]
+                    auto_category="uncategorized",
+                ),
+            )
+        )
+    return chunks
+
+
+def _context_block(chunks: list, web_hits: list) -> str:
     parts: list[str] = []
     for chunk in chunks:
-        label = (
-            "related material from outside this domain"
-            if getattr(chunk.metadata, "cross_category", False)
-            else f"in-domain {chunk.metadata.category} source"
-        )
+        if getattr(chunk.metadata, "type", None) == "web":
+            label = "web source"
+        elif getattr(chunk.metadata, "cross_category", False):
+            label = "related material from outside this domain"
+        else:
+            label = f"in-domain {chunk.metadata.category} source"
         parts.append(f"[{chunk.chunk_id}] ({label}, {chunk.metadata.source}): {chunk.content}")
     for index, hit in enumerate(web_hits, start=1):
-        parts.append(f"[web_{index}] (web source): {hit}")
+        text = hit.get("content") if isinstance(hit, dict) else hit
+        parts.append(f"[web_{index}] (web source): {text}")
     return "\n".join(parts) if parts else "(no evidence)"
 
 

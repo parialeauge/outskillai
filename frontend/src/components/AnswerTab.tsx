@@ -1,13 +1,14 @@
-import type { JobStatusPayload } from "../types";
 import { getReportPdf } from "../api";
+import { JOB_STATUS_LABELS, type JobStatusPayload } from "../types";
 
 type Props = {
   job: JobStatusPayload | null;
   lost: boolean;
+  pending: boolean;
   onCiteClick: (id: string) => void;
 };
 
-export default function AnswerTab({ job, lost, onCiteClick }: Props) {
+export default function AnswerTab({ job, lost, pending, onCiteClick }: Props) {
   const result = job?.result ?? null;
   const pdfReady = job?.status === "completed" && result?.pdf_available === true;
   const citations = new Map((result?.citations ?? []).map((item) => [item.id, item]));
@@ -30,6 +31,17 @@ export default function AnswerTab({ job, lost, onCiteClick }: Props) {
   if (lost) {
     return <p>Job no longer available — please ask again.</p>;
   }
+  if (pending) {
+    const label = job ? JOB_STATUS_LABELS[job.status] : "Working";
+    return (
+      <div className="answer-progress" role="status" aria-live="polite" aria-busy="true">
+        <div className="progress-track" aria-hidden="true">
+          <div className="progress-bar" />
+        </div>
+        <p className="progress-label">{label}</p>
+      </div>
+    );
+  }
   if (job?.status === "failed") {
     return (
       <div className="answer-head">
@@ -44,7 +56,7 @@ export default function AnswerTab({ job, lost, onCiteClick }: Props) {
   return (
     <div>
       <div className="answer-head">
-        <p>{result?.answer.summary ?? "Waiting for an answer."}</p>
+        {result?.answer.summary ? <p>{result.answer.summary}</p> : null}
         <button className="btn-primary" type="button" disabled={!pdfReady} onClick={() => void download()}>
           Download PDF
         </button>

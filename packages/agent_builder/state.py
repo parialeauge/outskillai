@@ -13,3 +13,5 @@ class AgentState(TypedDict, total=False):
     timeline_events: Annotated[list, operator.add]
     warnings: Annotated[list, operator.add]
     merged_findings: list
+    needs_current_info: bool
+    progress: Any

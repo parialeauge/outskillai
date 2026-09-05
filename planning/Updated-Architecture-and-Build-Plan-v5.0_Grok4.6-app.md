@@ -1,4 +1,4 @@
-# Pactlify Backend Implementation Plan (v4.0)
+# Pactlify Backend Implementation Plan (v5.0)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -33,25 +33,29 @@
 - Packaging: editable install via `outskillai/pyproject.toml`. No `sys.path` appends, no `PYTHONPATH` exports.
 - Limits (all in `shared/config.py` or `pactlify_shared/config.py` if `shared` collides):
 
-| Name | Value |
-|---|---|
-| `CHUNK_SIZE` / `CHUNK_OVERLAP` | 1000 / 200 chars |
-| `CSV_ROWS_PER_CHUNK` | 10–50 rows, row-bounded |
-| `TOP_K` | 5 |
-| `MIN_PRIMARY` | 3 |
-| `GENERAL_THIN_PRIMARY` | 2 |
-| `LLM_TIMEOUT` | 30s (one retry on connection error only, never on timeout) |
-| `AGENT_TIMEOUT` | 60s |
-| `JOB_TIMEOUT` | **300s** |
-| `URL_FETCH_TIMEOUT` | 10s |
-| `URL_FETCH_CONCURRENCY` | 5 |
-| `MAX_FILES` | 40 |
-| `MAX_FILE_MB` | 25 |
-| `MAX_URLS` | 20 |
-| `MAX_URL_BYTES` | 5 MB |
-| `JOB_RETENTION` | 50 jobs LRU / 30 min TTL; never evict a running job |
+
+| Name                           | Value                                                      |
+| ------------------------------ | ---------------------------------------------------------- |
+| `CHUNK_SIZE` / `CHUNK_OVERLAP` | 1000 / 200 chars                                           |
+| `CSV_ROWS_PER_CHUNK`           | 10–50 rows, row-bounded                                    |
+| `TOP_K`                        | 5                                                          |
+| `MIN_PRIMARY`                  | 3                                                          |
+| `GENERAL_THIN_PRIMARY`         | 2                                                          |
+| `LLM_TIMEOUT`                  | 30s (one retry on connection error only, never on timeout) |
+| `AGENT_TIMEOUT`                | 60s                                                        |
+| `JOB_TIMEOUT`                  | **300s**                                                   |
+| `URL_FETCH_TIMEOUT`            | 10s                                                        |
+| `URL_FETCH_CONCURRENCY`        | 5                                                          |
+| `MAX_FILES`                    | 40                                                         |
+| `MAX_FILE_MB`                  | 25                                                         |
+| `MAX_URLS`                     | 20                                                         |
+| `MAX_URL_BYTES`                | 5 MB                                                       |
+| `JOB_RETENTION`                | 50 jobs LRU / 30 min TTL; never evict a running job        |
+
 
 ---
+
+
 
 ## Out of scope (this plan)
 
@@ -60,6 +64,8 @@
 - ChromaDB. Do not add it.
 
 ---
+
+
 
 ## File map
 
@@ -116,6 +122,8 @@ outskillai/
 
 ---
 
+
+
 ## Public package interface (locked)
 
 ```python
@@ -157,20 +165,24 @@ HTTP still uses `category` on `POST /admin/ingest`. The Python ingest parameter 
 
 ---
 
+
+
 ## Wire contract this plan must produce
 
 Base origin is whatever the UI's `VITE_API_BASE_URL` points at (default `http://localhost:8000`). JSON `Content-Type: application/json` except PDF. Shared 4xx body: `{ "error": "error_code", "message": "human-readable string" }`. CORS must allow `Authorization` from the React origin.
 
-| Endpoint | Auth | Success | Errors |
-|---|---|---|---|
-| `GET /kb` | none | `{ loaded, document_count }` — no path, no filenames | — |
-| `GET /admin/status` | Bearer | last folder, counts, `failed_*` | 401 |
-| `GET /admin/documents` | Bearer | `{ "documents": DocumentInfo[] }`; empty KB is `200` with `[]`, not 404 | 401 |
-| `POST /admin/ingest` | Bearer | `IngestResult`; omit/`null` `category` = auto-detect | 400 `bad_folder`, 401, 403 `forbidden_path` |
-| `PATCH /admin/documents/{id}` | Bearer | `{ ok, document }` — **implemented even though UI does not call it** | 400, 401, 404 |
-| `POST /query` | none | `{ "job_id" }` | 400 `empty_query`, 409 `kb_empty` |
-| `GET /status/{job_id}` | none | §7.2 payload | 404 `job_not_found` |
-| `GET /report/{job_id}/pdf` | none | `application/pdf` + `Content-Disposition: attachment; filename="pactlify-{job_id}.pdf"` | 404 `pdf_not_ready` |
+
+| Endpoint                      | Auth   | Success                                                                                 | Errors                                      |
+| ----------------------------- | ------ | --------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `GET /kb`                     | none   | `{ loaded, document_count }` — no path, no filenames                                    | —                                           |
+| `GET /admin/status`           | Bearer | last folder, counts, `failed_*`                                                         | 401                                         |
+| `GET /admin/documents`        | Bearer | `{ "documents": DocumentInfo[] }`; empty KB is `200` with `[]`, not 404                 | 401                                         |
+| `POST /admin/ingest`          | Bearer | `IngestResult`; omit/`null` `category` = auto-detect                                    | 400 `bad_folder`, 401, 403 `forbidden_path` |
+| `PATCH /admin/documents/{id}` | Bearer | `{ ok, document }` — **implemented even though UI does not call it**                    | 400, 401, 404                               |
+| `POST /query`                 | none   | `{ "job_id" }`                                                                          | 400 `empty_query`, 409 `kb_empty`           |
+| `GET /status/{job_id}`        | none   | §7.2 payload                                                                            | 404 `job_not_found`                         |
+| `GET /report/{job_id}/pdf`    | none   | `application/pdf` + `Content-Disposition: attachment; filename="pactlify-{job_id}.pdf"` | 404 `pdf_not_ready`                         |
+
 
 Job status enum (only vocabulary): `queued` | `routing` | `running` | `merging` | `formatting` | `completed` | `failed`.
 
@@ -221,9 +233,12 @@ Ingest is **synchronous**. Until the response returns, `GET /kb` still reflects 
 
 ---
 
+
+
 ### Task 1: Packaging and editable install
 
 **Files:**
+
 - Create: `outskillai/pyproject.toml`
 - Create: `outskillai/apps/__init__.py`, `outskillai/apps/api/__init__.py`
 - Create: `outskillai/packages/__init__.py`, `outskillai/packages/rag_engine/__init__.py`, `outskillai/packages/agent_builder/__init__.py`
@@ -233,10 +248,11 @@ Ingest is **synchronous**. Until the response returns, `GET /kb` still reflects 
 - Modify: `outskillai/README.md`
 
 **Interfaces:**
+
 - Consumes: nothing
 - Produces: installable packages `apps`, `packages.rag_engine`, `packages.agent_builder`, `shared` via `pip install -e .` (or `uv pip install -e .`)
 
-- [ ] **Step 1: Write `pyproject.toml`**
+- [ ] **Step 1: Write** `pyproject.toml`
 
 ```toml
 [project]
@@ -273,7 +289,7 @@ include = ["apps*", "packages*", "shared*"]
 
 If `shared` collides with another distribution at install time, rename the directory and all imports to `pactlify_shared` in this task — not later.
 
-- [ ] **Step 2: Write `.env.example`**
+- [ ] **Step 2: Write** `.env.example`
 
 ```
 OPENROUTER_API_KEY=
@@ -317,13 +333,17 @@ git commit -m "chore: pin Pactlify editable packaging for apps, packages, and sh
 
 ---
 
+
+
 ### Task 2: Limits module
 
 **Files:**
+
 - Create: `outskillai/shared/config.py`
 - Test: `outskillai/tests/test_config.py`
 
 **Interfaces:**
+
 - Consumes: Task 1 packaging
 - Produces: every §4.6 constant as a module-level name, imported by ingest, retrieve, agents, and the registry
 
@@ -361,7 +381,7 @@ pytest tests/test_config.py::test_job_timeout_covers_four_sequential_agents -v
 
 Expected: FAIL with `ModuleNotFoundError` or `ImportError`
 
-- [ ] **Step 3: Write `shared/config.py`** with those exact values plus `CHUNK_SIZE = 1000`, `CHUNK_OVERLAP = 200`, `CSV_ROWS_PER_CHUNK_MIN = 10`, `CSV_ROWS_PER_CHUNK_MAX = 50`, `LLM_TIMEOUT = 30`, `URL_FETCH_TIMEOUT = 10`, `URL_FETCH_CONCURRENCY = 5`.
+- [ ] **Step 3: Write** `shared/config.py` with those exact values plus `CHUNK_SIZE = 1000`, `CHUNK_OVERLAP = 200`, `CSV_ROWS_PER_CHUNK_MIN = 10`, `CSV_ROWS_PER_CHUNK_MAX = 50`, `LLM_TIMEOUT = 30`, `URL_FETCH_TIMEOUT = 10`, `URL_FETCH_CONCURRENCY = 5`.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -380,35 +400,39 @@ git commit -m "feat: centralize Pactlify pipeline limits in shared.config"
 
 ---
 
+
+
 ### Task 3: OpenRouter wrapper
 
 **Files:**
+
 - Create: `outskillai/shared/llm.py`
 - Test: `outskillai/tests/test_llm.py`
 
 **Interfaces:**
+
 - Consumes: `LLM_TIMEOUT` from `shared.config`
 - Produces: `async def chat(messages: list[dict], *, timeout: float = LLM_TIMEOUT, response_format: dict | None = None) -> str` and `def chat_sync(...)` for classifier/off-loop use. One retry on connection error only; never retry on timeout. Tracing via LangSmith env must never raise into the caller.
 
 - [ ] **Step 1: Write the failing test** using `httpx.MockTransport` or a stubbed client: timeout is not retried; a single connection error is retried once; a second connection error raises.
-
 - [ ] **Step 2: Run the test — expect FAIL** (`chat` not defined).
-
-- [ ] **Step 3: Implement `shared/llm.py`** reading `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` (default `openai/gpt-4o-mini`) from env. Do not import this module from `rag_engine.vectorstore`.
-
+- [ ] **Step 3: Implement** `shared/llm.py` reading `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` (default `openai/gpt-4o-mini`) from env. Do not import this module from `rag_engine.vectorstore`.
 - [ ] **Step 4: Run tests — expect PASS.**
-
 - [ ] **Step 5: Commit** `feat: wrap OpenRouter with timeout and connection-only retry`
 
 ---
 
+
+
 ### Task 4: LanceDB pin and pre-filter proof
 
 **Files:**
+
 - Create: `outskillai/scripts/lancedb_prefilter_check.py`
 - Create: `outskillai/tests/test_lancedb_prefilter.py`
 
 **Interfaces:**
+
 - Consumes: pinned `lancedb` from Task 1
 - Produces: confirmed `connect(tmpdir)`, SQL `.where(...)`, and `prefilter=True` behaviour used by Task 11
 
@@ -427,7 +451,7 @@ db = lancedb.connect(tempfile.mkdtemp(prefix="outskill-kb-"))
 
 Confirm: (1) connect works; (2) `.where("category = 'pm'")` returns expected rows; (3) write ~20 rows where only 3 have `category = 'pm'`, search `k=5`, and with `prefilter=True` the filter returns all 3. If it returns fewer or none, the predicate is post-filter — keep passing `prefilter=True` explicitly in `vectorstore.py`.
 
-- [ ] **Step 3: Encode that third check as `tests/test_lancedb_prefilter.py`** so it stays in CI:
+- [ ] **Step 3: Encode that third check as** `tests/test_lancedb_prefilter.py` so it stays in CI:
 
 ```python
 def test_prefilter_returns_all_matching_rows_even_when_k_exceeds_matches(tmp_path):
@@ -443,53 +467,62 @@ def test_prefilter_returns_all_matching_rows_even_when_k_exceeds_matches(tmp_pat
 
 ---
 
+
+
 ### Task 5: RAG domain types
 
 **Files:**
+
 - Create: `outskillai/packages/rag_engine/types.py`
 
 **Interfaces:**
+
 - Consumes: nothing
 - Produces: dataclasses/Pydantic models `ChunkMetadata`, `Chunk`, `DocumentInfo`, `FailedFile`, `FailedUrl`, `IngestResult`, `RetrieveResult` with the fields listed in the public interface above. `category` is a `Literal` of the five strings; never `None`.
 
-- [ ] **Step 1: Write `types.py`.** `FailedFile` is `{name: str, reason: str}`. `FailedUrl` is `{url: str, reason: str}`. `IngestResult.knowledge_base_id` defaults to `"shared"`.
-
+- [ ] **Step 1: Write** `types.py`**.** `FailedFile` is `{name: str, reason: str}`. `FailedUrl` is `{url: str, reason: str}`. `IngestResult.knowledge_base_id` defaults to `"shared"`.
 - [ ] **Step 2: Commit** `feat: add rag_engine domain types`
 
 ---
 
+
+
 ### Task 6: Deterministic fake embedder
 
 **Files:**
+
 - Create: `outskillai/packages/rag_engine/embeddings.py`
 - Create: `outskillai/tests/fake_embedder.py`
 - Test: `outskillai/tests/test_embeddings.py`
 
 **Interfaces:**
+
 - Consumes: `EMBEDDING_MODEL` env (real path)
 - Produces: `class Embedder` with `def encode(self, texts: list[str]) -> list[list[float]]`. Tests inject `FakeEmbedder` (hash-based unit vectors). Production uses `sentence-transformers/all-MiniLM-L6-v2`.
 
-- [ ] **Step 1: Write `FakeEmbedder`** so identical strings get identical vectors and different strings are not orthogonal by accident (use a stable hash → 384-dim vector, L2-normalized).
-
-- [ ] **Step 2: Write `embeddings.py`** with a constructor `Embedder(model: SentenceTransformer | FakeEmbedder)`. Real encode is CPU-bound; callers wrap with `asyncio.to_thread`.
-
+- [ ] **Step 1: Write** `FakeEmbedder` so identical strings get identical vectors and different strings are not orthogonal by accident (use a stable hash → 384-dim vector, L2-normalized).
+- [ ] **Step 2: Write** `embeddings.py` with a constructor `Embedder(model: SentenceTransformer | FakeEmbedder)`. Real encode is CPU-bound; callers wrap with `asyncio.to_thread`.
 - [ ] **Step 3: Test identical input → identical vector; different inputs → different vectors.**
-
 - [ ] **Step 4: Commit** `feat: add embedder interface with hash-based fake for tests`
 
 ---
 
+
+
 ### Task 7: Per-type chunker
 
 **Files:**
+
 - Create: `outskillai/packages/rag_engine/chunker.py`
 - Test: `outskillai/tests/test_chunker.py`
 
 **Interfaces:**
+
 - Consumes: `CHUNK_SIZE`, `CHUNK_OVERLAP`, `CSV_ROWS_PER_CHUNK_*` from config; `Chunk` from types
 - Produces: `chunk_txt(text, *, document_id, source, type_)`, `chunk_pdf(pages: list[str], ...)`, `chunk_csv(header: str, rows: list[str], ...)`
 
 Rules:
+
 - `txt` / `web`: ~1000 characters, 200 overlap.
 - `pdf`: ~1000 characters, 200 overlap, **never spanning a page boundary**. Every chunk's `metadata.page` is that page's 1-based index.
 - `csv`: accumulate whole rows until the next row would exceed the budget; **never split mid-row**; repeat the CSV header in every chunk; set contiguous `row_start` / `row_end`.
@@ -523,7 +556,7 @@ def test_csv_never_splits_a_row_and_repeats_header():
 
 - [ ] **Step 2: Run tests — expect FAIL.**
 
-- [ ] **Step 3: Implement `chunker.py`.**
+- [ ] **Step 3: Implement** `chunker.py`**.**
 
 - [ ] **Step 4: Run tests — expect PASS.**
 
@@ -531,17 +564,22 @@ def test_csv_never_splits_a_row_and_repeats_header():
 
 ---
 
+
+
 ### Task 8: Flat folder scan, caps, and per-document dedupe
 
 **Files:**
+
 - Create: `outskillai/packages/rag_engine/ingestion.py` (scan + cap + load orchestration)
 - Test: `outskillai/tests/test_ingest_scan.py`
 
 **Interfaces:**
+
 - Consumes: `MAX_FILES`, `MAX_FILE_MB`, `MAX_URLS`, `MAX_URL_BYTES`, `URL_FETCH_TIMEOUT`, `URL_FETCH_CONCURRENCY`
 - Produces: `class IngestRejected(Exception)` with `code = "bad_folder"`; `scan_folder(path: Path) -> ScanResult` counting **top-level** `pdf`/`csv`/`txt`/`urls.txt` only; `dedupe_chunks_within_document(chunks: list[Chunk]) -> list[Chunk]` hashing `content` per `document_id`
 
 Scan rules:
+
 - Count candidates and `stat` sizes **before** any parsing.
 - Over `MAX_FILES` → raise `IngestRejected` (`bad_folder`), no swap. Message includes the count.
 - Folder exists but only subdirectories, no top-level ingestable files → `IngestRejected`. Message must say the scan is flat so it does not read as "your PDFs are broken."
@@ -550,26 +588,28 @@ Scan rules:
 - Dedupe: identical content **inside one document** collapses to one chunk. Identical content in **two documents** stays two chunks.
 
 - [ ] **Step 1: Write failing tests** for over-`MAX_FILES`, subdirectory-only folder, oversized file skip, intra-document collapse, cross-document keep.
-
-- [ ] **Step 2: Implement scan + `dedupe_chunks_within_document`.**
-
+- [ ] **Step 2: Implement scan +** `dedupe_chunks_within_document`**.**
 - [ ] **Step 3: Run tests — expect PASS.**
-
 - [ ] **Step 4: Commit** `feat: scan folders flat with ingest caps and per-document chunk dedupe`
 
 ---
 
+
+
 ### Task 9: File and URL loaders
 
 **Files:**
+
 - Modify: `outskillai/packages/rag_engine/ingestion.py`
 - Test: `outskillai/tests/test_loaders.py`
 
 **Interfaces:**
+
 - Consumes: Task 7 chunker, Task 8 scan
 - Produces: `load_pdf`, `load_csv`, `load_txt`, `load_urls_txt` returning chunks plus failed entries
 
 Loader rules:
+
 - PDF via PyMuPDF.
 - CSV via pandas; pass header + row strings into `chunk_csv`.
 - TXT / CSV: decode UTF-8; on failure retry `latin-1`; only then `failed_files`.
@@ -577,47 +617,50 @@ Loader rules:
 - Unreadable file → skip, list in `failed_files`, continue.
 
 - [ ] **Step 1: Write failing tests** using temp files: latin-1 CSV succeeds; `urls.txt` over `MAX_URLS` lists extras; a response over `MAX_URL_BYTES` and a `application/pdf` Content-Type each land in `failed_urls` with **distinct** reasons.
-
 - [ ] **Step 2: Implement loaders.** URL fetch must be skip-on-error; a hang is a timeout, not a stalled ingest.
-
 - [ ] **Step 3: Run tests — expect PASS.**
-
 - [ ] **Step 4: Commit** `feat: load pdf, csv, txt, and urls.txt with skip-and-list failures`
 
 ---
 
+
+
 ### Task 10: Two-level classifier
 
 **Files:**
+
 - Create: `outskillai/packages/rag_engine/classifier.py`
 - Test: `outskillai/tests/test_classifier.py`
 
 **Interfaces:**
+
 - Consumes: `shared.llm.chat_sync` (doc-level), keyword lists
 - Produces: `classify_document(text: str) -> Literal['financial','pm','capex','uncategorized']`; `classify_chunk(text: str, auto_category: str) -> str`
 
 Rules:
+
 - Document level: one LLM call over roughly the first 2000 characters. Low confidence or LLM failure → `uncategorized`. Keyword heuristic if OpenRouter is down. Ingest **never** fails because classification failed.
 - Chunk level: keyword/scoring heuristic only. Above threshold → that category; else inherit `auto_category`. **No LLM per chunk.**
 - Stamped ingest does not call this module (Task 12).
 
 - [ ] **Step 1: Write failing tests** with the LLM stubbed: unmatched content → `uncategorized`; mixed budget+timeline document → chunk-level `financial` and `pm` both appear; LLM raise → heuristic, not exception.
-
 - [ ] **Step 2: Implement classifier.**
-
 - [ ] **Step 3: Run tests — expect PASS.**
-
 - [ ] **Step 4: Commit** `feat: classify documents by LLM and chunks by heuristic`
 
 ---
 
+
+
 ### Task 11: LanceDB vectorstore (build-then-swap)
 
 **Files:**
+
 - Create: `outskillai/packages/rag_engine/vectorstore.py`
 - Test: `outskillai/tests/test_vectorstore.py`
 
 **Interfaces:**
+
 - Consumes: Task 4 prefilter proof, Task 6 embedder, Task 5 types
 - Produces:
   - `connect_kb() -> LanceDB`
@@ -627,6 +670,7 @@ Rules:
   - `distance_to_relevance(distance: float) -> float` — cosine similarity `[0, 1]`, higher-is-better
 
 Rules:
+
 - Filters are SQL predicate strings: `.where("category = 'pm'")`. Never interpolate raw filenames.
 - Never store NULL category.
 - Always pass `prefilter=True`.
@@ -634,27 +678,29 @@ Rules:
 - Do not mutate a live table. Old tables drop when no job references them (registry owns that; leaking one table for a hackathon is acceptable).
 
 - [ ] **Step 1: Write failing tests:** relevance in `[0, 1]` and sorts descending; quoting helper does not break on a filename with a quote; search with `where category = 'pm'` returns only those rows.
-
-- [ ] **Step 2: Implement `vectorstore.py`.**
-
+- [ ] **Step 2: Implement** `vectorstore.py`**.**
 - [ ] **Step 3: Run tests — expect PASS.**
-
 - [ ] **Step 4: Commit** `feat: store chunks in LanceDB with SQL filters and cosine relevance`
 
 ---
 
+
+
 ### Task 12: Public retriever (ingest / retrieve / clear / list / set_category)
 
 **Files:**
+
 - Create: `outskillai/packages/rag_engine/retriever.py`
 - Modify: `outskillai/packages/rag_engine/__init__.py` to re-export the five functions
 - Test: `outskillai/tests/test_rag_engine.py`, `outskillai/tests/test_retriever.py`, `outskillai/tests/test_lifecycle.py`
 
 **Interfaces:**
+
 - Consumes: ingestion, classifier, vectorstore, embedder, types
 - Produces: the five public functions. Active table pointer lives in a module-level registry object that FastAPI will hold in Task 21 — for now a `KbState` dataclass: `handle`, `documents`, `last_folder`, `failed_files`, `failed_urls`, `chunk_count`.
 
-**`ingest(folder_path, stamp=None)`:**
+`ingest(folder_path, stamp=None)`**:**
+
 1. Scan + caps (Task 8).
 2. Load + chunk (Task 9).
 3. If `stamp` is `"uncategorized"` → reject (`IngestRejected`); no swap.
@@ -665,7 +711,7 @@ Rules:
 8. `build_table` into a **new** table; swap `KbState.handle` only on success.
 9. Return `IngestResult`. Partial file/URL failures still succeed if the new table swapped; those rows are only in `failed_*`.
 
-**`retrieve(..., category=...)`:**
+`retrieve(..., category=...)`**:**
 
 ```
 primary = search(query, where="category = 'pm'", k=top_k, prefilter=True)
@@ -678,15 +724,16 @@ return RetrieveResult(
 )
 ```
 
-Primary is category-matched only. **No `OR type = 'web'`.** Backfill fires only below `MIN_PRIMARY`. An agent with 3 or 4 primary chunks gets fewer than `TOP_K`. General's primary filter is `category IN ('uncategorized','policy')`. `primary_count` is in-category hits only.
+Primary is category-matched only. **No** `OR type = 'web'`**.** Backfill fires only below `MIN_PRIMARY`. An agent with 3 or 4 primary chunks gets fewer than `TOP_K`. General's primary filter is `category IN ('uncategorized','policy')`. `primary_count` is in-category hits only.
 
-**`set_category(kb_id, document_id, category=None)`:** writes `category` for **every chunk of that document**, leaves `auto_category` untouched, `overridden = true`. `category=None` writes literal `'uncategorized'`. No classifier runs. Unknown `document_id` → `False`.
+`set_category(kb_id, document_id, category=None)`**:** writes `category` for **every chunk of that document**, leaves `auto_category` untouched, `overridden = true`. `category=None` writes literal `'uncategorized'`. No classifier runs. Unknown `document_id` → `False`.
 
-**`clear`:** drops the active handle and empties `KbState`. No HTTP route in this slice.
+`clear`**:** drops the active handle and empties `KbState`. No HTTP route in this slice.
 
 - [ ] **Step 1: Write the §11 ingest + retrieval + lifecycle tests** in the three test files. Required cases (each is a named test, not a comment):
 
 Ingest:
+
 - Mixed folder (PDF, CSV, TXT, `urls.txt`) → categories, metadata, `failed_files` / `failed_urls` for bad inputs.
 - CSV chunks never split a row; header repeated; `row_start` / `row_end` contiguous.
 - PDF chunks never span a page; `metadata.page` accurate.
@@ -703,15 +750,17 @@ Ingest:
 - latin-1 CSV ingests.
 
 Retrieval:
+
 - ≥`MIN_PRIMARY` `pm` chunks → only `pm`, all `cross_category=false`.
 - 0 `pm` chunks → still returns chunks, **every one** `cross_category=true`, `primary_count==0`.
 - `primary_count` is in-category only.
-- **0 `pm` + auto-detect `urls.txt` → `primary_count==0`**, web chunks `cross_category=true` (v4.0 regression).
+- **0** `pm` **+ auto-detect** `urls.txt` **→** `primary_count==0`, web chunks `cross_category=true` (v4.0 regression).
 - Same corpus stamped `pm` → those web chunks count toward `primary_count`, `cross_category=false`.
 - Exactly `MIN_PRIMARY` in-category chunks → exactly those, no backfill, even if `< TOP_K`.
 - Category filter matching 3 of 20 rows returns all 3 with `k=5`.
 
 Lifecycle:
+
 - Reloading the same folder twice does not double chunk count.
 - A reload that fails partway leaves the previous KB intact and queryable.
 - A retrieve started against handle A still returns handle A's chunks after a successful swap to handle B (jobs capture the table handle at start). `retrieve` must accept the captured handle, not always read the global pointer. Task 20 passes that handle into the graph.
@@ -720,27 +769,29 @@ Lifecycle:
 - New `KbState()` (simulating process restart) → `list_documents` is `[]` until ingest.
 
 - [ ] **Step 2: Run the new tests — expect FAIL.**
-
-- [ ] **Step 3: Implement `retriever.py`.** Keep a throwaway `scripts/smoke_ingest.py` that ingests one TXT and prints retrieved chunks for later agent work.
-
-- [ ] **Step 4: Run `pytest tests/test_rag_engine.py tests/test_retriever.py tests/test_lifecycle.py tests/test_chunker.py tests/test_lancedb_prefilter.py -v` — expect PASS.**
-
+- [ ] **Step 3: Implement** `retriever.py`**.** Keep a throwaway `scripts/smoke_ingest.py` that ingests one TXT and prints retrieved chunks for later agent work.
+- [ ] **Step 4: Run** `pytest tests/test_rag_engine.py tests/test_retriever.py tests/test_lifecycle.py tests/test_chunker.py tests/test_lancedb_prefilter.py -v` **— expect PASS.**
 - [ ] **Step 5: Commit** `feat: expose ingest, retrieve, and set_category with prefer-then-backfill`
 
 ---
 
+
+
 ### Task 13: Agent state and parent router
 
 **Files:**
+
 - Create: `outskillai/packages/agent_builder/state.py`
 - Create: `outskillai/packages/agent_builder/parent_agent.py`
 - Test: `outskillai/tests/test_parent_agent.py`
 
 **Interfaces:**
+
 - Consumes: built-agent set (start with `{"pm", "financial"}`)
-- Produces: `AgentState` TypedDict with `Annotated[list, operator.add]` on fields specialists write (`findings`, `timeline_events`, `warnings`). `route(query: str, built: set[str]) -> list[str]` using structured output over an enum, then **intersect with `built`**.
+- Produces: `AgentState` TypedDict with `Annotated[list, operator.add]` on fields specialists write (`findings`, `timeline_events`, `warnings`). `route(query: str, built: set[str]) -> list[str]` using structured output over an enum, then **intersect with** `built`.
 
 Routing fallback:
+
 - First slice (only PM + Financial built): if routing fails or names nobody in `built`, activate **both**.
 - After General exists (Task 17): if routing fails, activate **General only**.
 
@@ -756,21 +807,26 @@ A router that returns `capex` before CapEx is built must fall through to the fal
 
 ---
 
+
+
 ### Task 14: PM and Financial specialists
 
 **Files:**
+
 - Create: `outskillai/packages/agent_builder/financial_agent.py`
 - Create: `outskillai/packages/agent_builder/pm_agent.py`
 - Test: `outskillai/tests/test_specialists.py`
 
 **Interfaces:**
+
 - Consumes: `retrieve()`, `primary_count`, Tavily/NewsAPI wrappers, `shared.llm`
 - Produces: each agent function `run_pm(state) -> dict` / `run_financial(state) -> dict` returning `summary`, `key_points`, `evidence[]`, `used_chunk_ids[]`, plus a timeline event.
 
 Each agent:
+
 1. Rewrite a sub-question.
 2. `retrieve(kb_id, sub_question, category=...)`.
-3. Live web **only if `primary_count == 0`** (these two agents). Never use `len(chunks)`.
+3. Live web **only if** `primary_count == 0` (these two agents). Never use `len(chunks)`.
 4. Synthesize on OpenRouter. Prompt must label `cross_category` chunks as "related material from outside this domain" and live-web as web sources.
 5. Return findings plus `used_chunk_ids` of chunks it actually used.
 6. On `AGENT_TIMEOUT` or exception: timeline `failed` with `error`; do not raise into the graph.
@@ -779,7 +835,7 @@ Keep graph nodes **sync**. FastAPI runs `await asyncio.to_thread(graph.invoke, .
 
 - [ ] **Step 1: Write failing tests** with a fake retriever: `primary_count==0` triggers a web-search stub; `primary_count>=1` does not; returned `used_chunk_ids` are a subset of retrieved ids.
 
-- [ ] **Step 2: Implement both agents sharing an internal `run_specialist(name, category, live_web_if_empty)` helper in a new `packages/agent_builder/specialist.py` so CapEx/General do not copy-paste later. Do not leave Financial/PM as the only copies.**
+- [ ] **Step 2: Implement both agents sharing an internal** `run_specialist(name, category, live_web_if_empty)` **helper in a new** `packages/agent_builder/specialist.py` **so CapEx/General do not copy-paste later. Do not leave Financial/PM as the only copies.**
 
 - [ ] **Step 3: Run tests — expect PASS.**
 
@@ -787,13 +843,17 @@ Keep graph nodes **sync**. FastAPI runs `await asyncio.to_thread(graph.invoke, .
 
 ---
 
+
+
 ### Task 15: LangGraph sequential, then Send
 
 **Files:**
+
 - Create: `outskillai/packages/agent_builder/graph.py`
 - Test: `outskillai/tests/test_graph.py`
 
 **Interfaces:**
+
 - Consumes: parent router, specialists, `AgentState` with `operator.add` reducers
 - Produces: `build_graph(built_agents: set[str]) -> CompiledGraph`; `run_job(query, kb_handle, job_updater)` that writes timeline statuses `queued → routing → running → merging → formatting → completed` (formatting is Task 16; this task can stop at merge and leave a `merged_findings` blob).
 
@@ -803,7 +863,7 @@ Keep graph nodes **sync**. FastAPI runs `await asyncio.to_thread(graph.invoke, .
 
 - [ ] **Step 2: Implement sequential graph.**
 
-- [ ] **Step 3: Add `Send` fan-out.** Same tests must pass. One failed agent does not hide the others.
+- [ ] **Step 3: Add** `Send` **fan-out.** Same tests must pass. One failed agent does not hide the others.
 
 - [ ] **Step 4: Timeout test:** an agent exceeding `AGENT_TIMEOUT` is `failed` and does not stall the job. Four sequential agents at `AGENT_TIMEOUT` complete inside `JOB_TIMEOUT` (assert `4 * AGENT_TIMEOUT < JOB_TIMEOUT` and a fake clock or a unit test that the job wrapper enforces `JOB_TIMEOUT`).
 
@@ -811,25 +871,30 @@ Keep graph nodes **sync**. FastAPI runs `await asyncio.to_thread(graph.invoke, .
 
 ---
 
+
+
 ### Task 16: Formatter and citations
 
 **Files:**
+
 - Create: `outskillai/packages/agent_builder/formatter.py`
 - Test: `outskillai/tests/test_formatter.py`
 - Create: `frontend/src/fixtures/` copies of real output (directory may be empty until UI plan; write JSON files here)
 
 **Interfaces:**
+
 - Consumes: merged agent findings, the chunk objects each agent was handed, `warnings[]`
 - Produces: the completed §7.3 envelope. `format_job(...) -> dict`
 
 Citation algorithm (deterministic; agents never mint ids):
+
 1. For each agent, intersect `used_chunk_ids` with the chunk ids **actually handed to that agent**; drop the rest (no citation minted from a foreign or invented id).
 2. Assign `c1..cn` over the **deduplicated union**, stable order: first appearance across agents in **activation order**.
 3. One chunk → exactly one citation id even if two agents used it; both sections reference that id.
 4. Drop any `citation_id` in a section that does not map to a real chunk; append a warning. Job still completes.
 5. `quote`:
-   - `pdf` / `txt` / `web`: first ~200 characters of chunk content.
-   - `csv`: the repeated header line **plus the first data rows** that fit in ~200 characters — never the header alone.
+  - `pdf` / `txt` / `web`: first ~200 characters of chunk content.
+  - `csv`: the repeated header line **plus the first data rows** that fit in ~200 characters — never the header alone.
 6. Every `quote` is a literal substring of that chunk's `content`.
 7. Copy top-level `warnings[]` into `result.warnings[]` so they stay identical.
 8. Template loader: if files exist under `resource/` / `out/`, apply them; if missing, use this default shape. Missing templates must not fail the job.
@@ -933,7 +998,7 @@ def test_quote_is_substring_of_chunk_content():
     assert envelope["citations"][0]["quote"] in chunk.content
 ```
 
-- [ ] **Step 2: Implement `formatter.py`.**
+- [ ] **Step 2: Implement** `formatter.py`**.**
 
 - [ ] **Step 3: Save real outputs** as `frontend/src/fixtures/job-completed-multi.json`, `job-cross.json`, `job-agent-failed.json`, `job-dropped-citation.json`, `job-failed.json` once a formatter run exists. If agents are stubbed, still emit valid §7.2 / §7.3 envelopes.
 
@@ -943,9 +1008,12 @@ def test_quote_is_substring_of_chunk_content():
 
 ---
 
+
+
 ### Task 17: CapEx and General
 
 **Files:**
+
 - Create: `outskillai/packages/agent_builder/capex_agent.py`
 - Create: `outskillai/packages/agent_builder/general_agent.py`
 - Modify: `outskillai/packages/agent_builder/parent_agent.py` (`built` may now include `capex` and `general`; routing-fail fallback becomes General only)
@@ -953,46 +1021,53 @@ def test_quote_is_substring_of_chunk_content():
 - Test: `outskillai/tests/test_specialists.py` (extend), `outskillai/tests/test_parent_agent.py` (fallback)
 
 **Interfaces:**
+
 - Consumes: the same `run_specialist` helper
 - Produces: CapEx (`category='capex'`, live web iff `primary_count==0`); General (`category=['uncategorized','policy']`, live web iff `primary_count < GENERAL_THIN_PRIMARY` or parent `needs_current_info is True`)
 
-- [ ] **Step 1: Tests for General's filter and live-web rule; routing-fail → `["general"]` only.**
-
-- [ ] **Step 2: Implement both agents. Wire them into `build_graph`.**
-
+- [ ] **Step 1: Tests for General's filter and live-web rule; routing-fail →** `["general"]` **only.**
+- [ ] **Step 2: Implement both agents. Wire them into** `build_graph`**.**
 - [ ] **Step 3: Commit** `feat: add CapEx and General specialists with distinct live-web rules`
 
 ---
 
+
+
 ### Task 18: Minimal Pactlify PDF
 
 **Files:**
+
 - Create: `outskillai/packages/agent_builder/pdf_generator.py`
 - Test: `outskillai/tests/test_pdf_generator.py`
 
 **Interfaces:**
+
 - Consumes: §7.3 envelope
 - Produces: `render_pdf(envelope: dict) -> bytes`. Prefer WeasyPrint; if system deps are missing at import, use ReportLab. Contents: title **Pactlify**, date, job id, query, summary, agent sections, citations, source table.
 
 Rendering is **eager** inside the formatting step (Task 21 wires this). If render raises: catch, `pdf_available = false`, append a warning, still complete the job. Keep the renderer simple — it sits inside `JOB_TIMEOUT`.
 
-- [ ] **Step 1: Test that bytes start with `%PDF` for a minimal envelope; a renderer exception is not raised to the caller of a `safe_render` wrapper.**
+- [ ] **Step 1: Test that bytes start with** `%PDF` **for a minimal envelope; a renderer exception is not raised to the caller of a** `safe_render` **wrapper.**
 
-- [ ] **Step 2: Implement generator + `safe_render`.**
+- [ ] **Step 2: Implement generator +** `safe_render`**.**
 
 - [ ] **Step 3: Commit** `feat: render a minimal Pactlify PDF from the job envelope`
 
 ---
 
+
+
 ### Task 19: Auth, ingest-root guard, and job registry
 
 **Files:**
+
 - Create: `outskillai/apps/api/auth.py`
 - Create: `outskillai/apps/api/paths.py`
 - Create: `outskillai/apps/api/session_registry.py`
 - Test: `outskillai/tests/test_auth_paths.py`, `outskillai/tests/test_registry.py`
 
 **Interfaces:**
+
 - Consumes: `ADMIN_TOKEN`, `ALLOWED_INGEST_ROOT`, `JOB_RETENTION_*`
 - Produces:
   - `require_admin(authorization: str) -> None` raising 401 `{error: unauthorized}`
@@ -1024,18 +1099,23 @@ Resolve before the check, ingest the **resolved** path. `strict=True` so a nonex
 
 ---
 
+
+
 ### Task 20: FastAPI routes and CORS
 
 **Files:**
+
 - Create: `outskillai/apps/api/main.py`
 - Create: `outskillai/apps/api/routes.py`
 - Test: `outskillai/tests/test_api.py`
 
 **Interfaces:**
+
 - Consumes: retriever, graph, formatter, pdf `safe_render`, auth, paths, registry
 - Produces: every endpoint in the wire-contract table. `GET /kb.loaded` must match `GET /admin/status.loaded`. After process start with no ingest: `loaded: false`, `document_count: 0`.
 
 Implementation notes:
+
 - CORS allows the React origin and the `Authorization` header.
 - `POST /admin/ingest` is sync work; run `ingest(...)` in `asyncio.to_thread`. On `IngestRejected` → 400 `bad_folder`, no swap. Body `category` omitted or `null` → `stamp=None`. Body `category: "uncategorized"` → 400 `bad_folder`.
 - `PATCH /admin/documents/{id}`: `{ "category": "policy" }` or `{ "category": null }` (unmark). Other values → 400. Unknown id → 404. `200 { "ok": true, "document": DocumentInfo }`.
@@ -1046,7 +1126,7 @@ Implementation notes:
 - LangSmith env must never block an answer.
 - No `clear()` route.
 
-- [ ] **Step 1: Write failing API tests (httpx `TestClient` or `AsyncClient`)** covering the §11 Agents and API list:
+- [ ] **Step 1: Write failing API tests (httpx** `TestClient` **or** `AsyncClient`**)** covering the §11 Agents and API list:
   - Empty KB → `POST /query` 409 `kb_empty`
   - Empty question → 400 `empty_query`, no job
   - One agent failure → merged answer; that agent `failed` on timeline
@@ -1063,18 +1143,18 @@ Implementation notes:
   - `PATCH` `{ "category": null }` unmarks every chunk, `overridden=true`, `auto_category` unchanged
   - Unknown job → 404 `job_not_found`
   - Failed job: non-null top-level `error`, `result: null`
-
-- [ ] **Step 2: Implement `main.py` + `routes.py`.**
-
-- [ ] **Step 3: Run `pytest tests/test_api.py tests/test_auth_paths.py tests/test_registry.py -v` — expect PASS.**
-
+- [ ] **Step 2: Implement** `main.py` **+** `routes.py`**.**
+- [ ] **Step 3: Run** `pytest tests/test_api.py tests/test_auth_paths.py tests/test_registry.py -v` **— expect PASS.**
 - [ ] **Step 4: Commit** `feat: expose Pactlify admin and query HTTP contract`
 
 ---
 
+
+
 ### Task 21: Sample corpus and operator README
 
 **Files:**
+
 - Create: `outskillai/sample_data/` (flat — no subdirectories): 1–2 PDFs, 1 CSV, 1 TXT, `urls.txt`. **At least one deliberately mixed document** (budget + timeline in one file). Every file `< MAX_FILE_MB`; folder `< MAX_FILES`.
 - Modify: `outskillai/README.md` with env vars, `ALLOWED_INGEST_ROOT` pointing at a parent of `sample_data`, `ADMIN_TOKEN`, and:
 
@@ -1083,16 +1163,17 @@ uvicorn apps.api.main:app --workers 1
 ```
 
 **Interfaces:**
+
 - Consumes: working ingest from Task 12
 - Produces: a folder a judge can paste into Admin; smoke script still works
 
-- [ ] **Step 1: Add sample files. Keep mixed-document content obviously `financial` and `pm` at chunk level.**
-
-- [ ] **Step 2: Run smoke ingest against `sample_data` with the fake or real embedder.**
-
+- [ ] **Step 1: Add sample files. Keep mixed-document content obviously** `financial` **and** `pm` **at chunk level.**
+- [ ] **Step 2: Run smoke ingest against** `sample_data` **with the fake or real embedder.**
 - [ ] **Step 3: Commit** `chore: add a flat sample_data folder and single-worker run docs`
 
 ---
+
+
 
 ### Task 22: Full backend pytest gate
 
@@ -1109,9 +1190,11 @@ Expected: PASS. One integration test may use the real MiniLM model; everything e
 
 - [ ] **Step 2: Confirm OpenAPI** at `/openapi.json` matches the wire contract field names (`document_id`, `source`, `category`, seven-state `status`, `pdf_available`). The UI plan may generate `types.ts` from this schema.
 
-- [ ] **Step 3: If formatter fixtures in `frontend/src/fixtures/` drifted from live envelopes, regenerate them from a real completed job.**
+- [ ] **Step 3: If formatter fixtures in** `frontend/src/fixtures/` **drifted from live envelopes, regenerate them from a real completed job.**
 
 ---
+
+
 
 ## Backend tests that must pass (checklist)
 
@@ -1120,6 +1203,8 @@ Copy of v4.0 §11 as it applies to this plan. Every bullet has a test function i
 **Ingest, retrieval, lifecycle:** listed in Task 12. **Agents and API:** listed in Task 20. **Pre-filter:** Task 4 + Task 12. **Formatter:** Task 16. **PDF:** Task 18. **Auth/path/retention:** Task 19.
 
 ---
+
+
 
 ## Backend gotchas (do not "fix" these into the old bugs)
 
@@ -1139,6 +1224,8 @@ Copy of v4.0 §11 as it applies to this plan. Every bullet has a test function i
 
 ---
 
+
+
 ## Deferred (backend)
 
 - Custom JSON/PDF templates as the primary renderer (`resource` / `out` loader may exist; default envelope is required).
@@ -1150,6 +1237,8 @@ Copy of v4.0 §11 as it applies to this plan. Every bullet has a test function i
 - Chunk-level LLM classification.
 
 ---
+
+
 
 ## Suggested execution
 

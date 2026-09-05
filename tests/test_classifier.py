@@ -24,3 +24,15 @@ def test_llm_failure_falls_back_to_heuristic_not_exception():
         chat_sync=chat_sync,
     )
     assert result == "pm"
+
+
+def test_classifier_requests_json_schema_and_accepts_json_label():
+    captured: dict = {}
+
+    def chat_sync(messages, **kwargs):
+        captured.update(kwargs)
+        return '{"category": "financial"}'
+
+    assert classify_document("lorem ipsum dolor sit amet", chat_sync=chat_sync) == "financial"
+    fmt = captured.get("response_format") or {}
+    assert fmt.get("type") == "json_schema"

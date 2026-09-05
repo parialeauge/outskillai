@@ -46,6 +46,17 @@ def test_symlink_inside_root_pointing_outside_is_forbidden(tmp_path, monkeypatch
     assert exc.value.detail["error"] == "forbidden_path"
 
 
+def test_quoted_file_url_and_home_paths_resolve(tmp_path, monkeypatch):
+    allowed = tmp_path / "allowed"
+    folder = allowed / "docs"
+    folder.mkdir(parents=True)
+    monkeypatch.setenv("ALLOWED_INGEST_ROOT", str(allowed))
+    assert resolve_ingest_path(f'"{folder}"') == folder.resolve()
+    assert resolve_ingest_path(f"'{folder}'") == folder.resolve()
+    assert resolve_ingest_path(f"  {folder}  ") == folder.resolve()
+    assert resolve_ingest_path(f"file://{folder}") == folder.resolve()
+
+
 def test_missing_folder_is_bad_folder(tmp_path, monkeypatch):
     allowed = tmp_path / "allowed"
     allowed.mkdir()

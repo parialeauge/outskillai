@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
 
 from packages.rag_engine.types import Category
+from shared.schemas import CLASSIFIER_FORMAT
 
 KEYWORDS: dict[str, tuple[str, ...]] = {
     "financial": ("revenue", "budget", "roi", "cost", "profit", "forecast", "operating"),
@@ -24,6 +26,7 @@ def classify_document(text: str, chat_sync=None) -> Category:
         raw = llm(
             [{"role": "user", "content": _doc_prompt(snippet)}],
             timeout=30,
+            response_format=CLASSIFIER_FORMAT,
         )
         parsed = _parse_label(raw)
         if parsed is not None:
@@ -46,13 +49,22 @@ def classify_chunk(text: str, auto_category: str) -> str:
 def _doc_prompt(snippet: str) -> str:
     return (
         "Classify this document as exactly one of: financial, pm, capex, uncategorized.\n"
-        "Reply with only that label.\n\n"
+        'Reply JSON: {"category": "<label>"}.\n\n'
         f"{snippet}"
     )
 
 
 def _parse_label(raw: str) -> Category | None:
-    token = raw.strip().split()[0].strip(".,:;").lower() if raw.strip() else ""
+    text = raw.strip()
+    try:
+        payload = json.loads(text)
+        if isinstance(payload, dict):
+            token = str(payload.get("category") or "").strip().lower()
+            if token in ALLOWED:
+                return token  # type: ignore[return-value]
+    except json.JSONDecodeError:
+        pass
+    token = text.split()[0].strip(".,:;").lower() if text else ""
     if token in ALLOWED:
         return token  # type: ignore[return-value]
     return None

@@ -170,6 +170,11 @@ def build_router(ctx: ApiContext) -> APIRouter:
                 status_code=400,
                 detail={"error": "bad_folder", "message": str(error)},
             ) from error
+        except Exception as error:  # noqa: BLE001 — surface embedder/loader crashes to the admin UI
+            raise HTTPException(
+                status_code=500,
+                detail={"error": "ingest_failed", "message": str(error)},
+            ) from error
         return result.model_dump()
 
     @router.patch("/admin/documents/{document_id}")
@@ -226,7 +231,11 @@ def build_router(ctx: ApiContext) -> APIRouter:
                 status_code=404,
                 detail={"error": "pdf_not_ready", "message": "PDF is not available for this job."},
             )
-        return Response(content=pdf, media_type="application/pdf")
+        return Response(
+            content=pdf,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="pactlify-{job_id}.pdf"'},
+        )
 
     return router
 

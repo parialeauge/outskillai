@@ -2,7 +2,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apps.api.main import ApiContext, create_app
-from packages.rag_engine.retriever import reset_state
+from apps.api.routes import execute_job
+from packages.agent_builder.formatter import format_job
+from packages.rag_engine.retriever import get_state, reset_state
 from packages.rag_engine.types import Chunk, ChunkMetadata
 from tests.fake_embedder import FakeEmbedder
 
@@ -133,6 +135,20 @@ def test_empty_folder_ingest_is_400_and_does_not_swap(root):
     assert kb["document_count"] == 0
 
 
+def test_ingest_unexpected_error_returns_json_envelope(root, monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("embedder exploded")
+
+    monkeypatch.setattr("apps.api.routes.ingest", boom)
+    client = _client()
+    (root / "note.txt").write_text("timeline milestone")
+    response = client.post("/admin/ingest", json={"folder_path": str(root)}, headers=AUTH)
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"] == "ingest_failed"
+    assert "embedder exploded" in body["message"]
+
+
 def test_admin_documents_empty_kb(root):
     client = _client()
     response = client.get("/admin/documents", headers=AUTH)
@@ -159,6 +175,31 @@ def test_pdf_not_ready_is_404(root):
     response = client.get("/report/job_missing/pdf")
     assert response.status_code == 404
     assert response.json()["error"] in {"pdf_not_ready", "job_not_found"}
+
+
+def test_execute_job_does_not_mark_completed_until_result_exists(root, monkeypatch):
+    chunk = _chunk("chk_1", "timeline milestone")
+    ctx = ApiContext(
+        embedder=FakeEmbedder(),
+        chat_sync=lambda messages, **kwargs: '{"agents": ["pm"]}',
+        agents={"pm": _agent("pm", _finding("pm", chunk))},
+    )
+    client = _client(ctx)
+    _ingest(client, root)
+    job = ctx.registry.create("timeline?")
+    job["handle"] = get_state().handle
+    seen: list[str] = []
+
+    def spy(*args, **kwargs):
+        seen.append(job["status"])
+        assert job.get("result") is None
+        return format_job(*args, **kwargs)
+
+    monkeypatch.setattr("apps.api.routes.format_job", spy)
+    execute_job(ctx, job)
+    assert seen == ["formatting"]
+    assert job["status"] == "completed"
+    assert job["result"] is not None
 
 
 def test_one_agent_failure_still_merges(root):
@@ -255,6 +296,7 @@ def test_report_pdf_when_available(root):
     assert pdf.status_code == 200
     assert pdf.headers["content-type"].startswith("application/pdf")
     assert pdf.content.startswith(b"%PDF")
+    assert 'attachment; filename="pactlify-' in pdf.headers.get("content-disposition", "")
 
 
 def test_failed_job_has_error_and_null_result(root):

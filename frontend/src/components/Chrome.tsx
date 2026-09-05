@@ -1,7 +1,12 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import KbChip from "./KbChip";
 
 export default function Chrome() {
+  const { pathname } = useLocation();
+  if (pathname === "/") {
+    return null;
+  }
+
   return (
     <header className="chrome">
       <NavLink to="/" className="wordmark">

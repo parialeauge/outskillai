@@ -11,33 +11,58 @@
   background: var(--peach);
   color: var(--admin-ink);
   min-height: calc(100vh - 57px);
-  padding: 1.5rem;
+  padding: 1rem 1.25rem 1.25rem;
 }
 
 .admin-body h1 {
-  margin: 0 0 0.35rem;
-  font-size: 1.8rem;
+  margin: 0 0 0.2rem;
+  font-size: 1.35rem;
 }
 
 .admin-body .desc {
   color: var(--admin-muted);
-  margin: 0 0 1.25rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+}
+
+.upload-panel {
+  margin: 0 0 0.75rem;
+  background: var(--card);
+  border-radius: 12px;
+  border: 1px solid #eadfd3;
+  padding: 0.7rem 0.85rem;
+}
+
+.upload-panel label {
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+
+.upload-panel input[type="text"],
+.upload-panel input[type="password"] {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #eadfd3;
+  margin: 0.3rem 0 0.55rem;
+  font-size: 0.9rem;
 }
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 0.55rem;
 }
 
 .stamp-card {
   background: var(--card);
   border: 1px solid #eadfd3;
-  border-radius: 20px;
-  padding: 1.1rem 1.2rem;
-  min-height: 8.5rem;
+  border-radius: 12px;
+  padding: 0.55rem 0.7rem 0.6rem;
+  min-height: 4.4rem;
   position: relative;
-  box-shadow: 0 8px 24px rgba(80, 40, 10, 0.08);
   cursor: pointer;
   text-align: left;
   color: inherit;
@@ -46,25 +71,28 @@
 
 .stamp-card.selected {
   border: 2px solid #c9a48a;
+  padding: calc(0.55rem - 1px) calc(0.7rem - 1px) calc(0.6rem - 1px);
 }
 
 .stamp-card h2 {
-  margin: 0 0 0.4rem;
-  font-size: 1.15rem;
+  margin: 0 0 0.2rem;
+  font-size: 0.88rem;
+  padding-right: 1rem;
 }
 
 .stamp-card p {
   margin: 0;
   color: var(--admin-muted);
-  font-size: 0.92rem;
+  font-size: 0.75rem;
+  line-height: 1.25;
 }
 
 .dot {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 12px;
-  height: 12px;
+  top: 0.55rem;
+  right: 0.55rem;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 
@@ -74,56 +102,43 @@
 .dot.lavender { background: var(--dot-lavender); }
 .dot.gray { background: var(--dot-gray); }
 
-.upload-panel {
-  margin-top: 1.25rem;
-  background: var(--card);
-  border-radius: 20px;
-  border: 1px solid #eadfd3;
-  box-shadow: 0 8px 24px rgba(80, 40, 10, 0.08);
-  padding: 1.2rem;
-}
-
-.upload-panel input[type="text"],
-.upload-panel input[type="password"] {
-  width: 100%;
-  padding: 0.7rem 0.8rem;
-  border-radius: 12px;
-  border: 1px solid #eadfd3;
-  margin: 0.4rem 0 0.85rem;
-}
-
 .doc-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   background: var(--card);
-  border-radius: 20px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(80, 40, 10, 0.08);
 }
 
 .doc-table th,
 .doc-table td {
   text-align: left;
-  padding: 0.65rem 0.8rem;
+  padding: 0.4rem 0.6rem;
   border-bottom: 1px solid #eadfd3;
-  font-size: 0.92rem;
+  font-size: 0.82rem;
 }
 
 .doc-table th {
   font-family: "JetBrains Mono", monospace;
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .fail-list {
-  margin-top: 0.85rem;
+  margin-top: 0.55rem;
   color: #9a3b2f;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
 }
 
 .note {
   color: var(--admin-muted);
-  font-size: 0.88rem;
+  font-size: 0.78rem;
+  margin: 0.4rem 0 0;
+}
+
+.admin-body .btn-primary {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
 }

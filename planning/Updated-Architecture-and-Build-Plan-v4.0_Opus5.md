@@ -4,11 +4,11 @@ Supersedes `Updated-Architecture-and-Build-Plan-v3.0_Grok4.6.md`. **This file is
 
 **Versioning.** Planning files are numbered by filename: v1.0 → v2.0 → v3.0 → v4.0. Ignore any in-document version headings in the older files; they drifted from their filenames.
 
-**Product:** Pactlify. Admin loads a shared document folder into an in-memory knowledge base. Client users ask a question. A parent agent routes to specialist agents (Financial, PM, CapEx, General). Agents retrieve from category-preferring RAG, optionally search the live web, merge findings, and return a cited answer. The UI is one React app with three screens: mosaic landing, mosaic Client workspace, pastel Admin workspace.
+**Product:** Pactlify. Admin loads a shared document folder into an in-memory knowledge base. Client users ask a question. A parent agent routes to specialist agents (Financial, PM, CapEx, General). Agents retrieve from category-preferring RAG, optionally search the live web, merge findings, and return a cited answer. The UI is one React app with four routes: constellation marketing `/`, mosaic workspace hub `/app`, mosaic Client `/client`, pastel Admin `/admin`.
 
-**First slice focus:** PM and Financial agents, folder ingest with optional category stamp, three-route UI (landing / client / admin), default JSON response, minimal PDF download. CapEx, General, custom templates, real login, and disk persistence follow in later iterations.
+**First slice focus:** PM and Financial agents, folder ingest with optional category stamp, four-route UI (`/` constellation / `/app` mosaic hub / client / admin), default JSON response, minimal PDF download. CapEx, General, custom templates, real login, and disk persistence follow in later iterations.
 
-**What changed in v3.0 (carried forward).** The product is named **Pactlify**. Look-and-feel is in scope: [Mosaic Grid Architecture](https://superdesign.dev/library?category=style&selected=mosaic-grid-architecture-style) for landing + Client, [Promptly FAQ card-grid-pastel](https://superdesign.dev/library?category=all&selected=promptly-faq-card-grid-pastel&search=two+pannet) for Admin body. Routes are `/`, `/client`, `/admin`. Admin category cards are an optional single-select stamp; none selected means auto-detect. After ingest, a document table (id, name, category) is filled from `list_documents` plus a session `documentStore`. Client right pane is tabbed **Answer | Timeline | Sources** with a real **Download PDF** control.
+**What changed in v3.0 (carried forward).** The product is named **Pactlify**. Look-and-feel is in scope: [Animated Hero Section: Constellation Network Landing Page](https://superdesign.dev/library?category=animation&selected=animated-hero-section-constellation-network-landing-page) for marketing `/`, [Mosaic Grid Architecture](https://superdesign.dev/library?category=style&selected=mosaic-grid-architecture-style) for `/app` + Client, [Promptly FAQ card-grid-pastel](https://superdesign.dev/library?category=all&selected=promptly-faq-card-grid-pastel&search=two+pannet) for Admin body. Routes are `/`, `/app`, `/client`, `/admin`. **Start building** on `/` opens the mosaic hub at `/app`. Admin category cards are an optional single-select stamp; none selected means auto-detect. After ingest, a document table (id, name, category) is filled from `list_documents` plus a session `documentStore`. Client right pane is tabbed **Answer | Timeline | Sources** with a real **Download PDF** control.
 
 Backend carry-forward (still locked): category filtering is *preference with flagged backfill* (§4.4). The classifier may return `uncategorized`. Reload is build-then-swap. LanceDB uses a temp directory, not `EphemeralClient()`. `ADMIN_TOKEN` and the job-status contract stay as specified.
 
@@ -25,7 +25,7 @@ Ten corrections from a review of v3.0. Each is a place where two sections of v3.
 7. **CSV citation quotes (§7.1).** v3.0 took `quote` from the first ~200 characters of chunk content, and §4.2 repeats the CSV header at the top of every chunk — so every CSV citation would have quoted the header row and no data.
 8. **Citation ids dedupe across agents, and `used_chunk_ids` is validated (§7.1).** Two agents citing one chunk now share one id, and ids an agent never received are dropped.
 9. **Content-hash dedupe scoped to within a document (§4.1).** Cross-document dedupe made the second document's content uncitable and silently lowered its `chunk_count`.
-10. **Smaller fixes.** `metadata.relevance` defined as cosine similarity, higher-is-better (§5). `ALLOWED_INGEST_ROOT` enforced with `resolve()` + `commonpath`, not a prefix match (§8). Job registry gets a retention bound (§8). §3.4 defers to the seven-state §7.2 status enum. §7.2 `warnings[]` named as the Client banner source (§3.4). Phase 1 pins packaging and adds a LanceDB pre-filter check (§10). `PATCH` `null` semantics defined (§8.1).
+10. **Smaller fixes.** `metadata.relevance` defined as cosine similarity, higher-is-better (§5). `ALLOWED_INGEST_ROOT` enforced with `resolve()` + `commonpath`, not a prefix match (§8). Job registry gets a retention bound (§8). §3.5 defers to the seven-state §7.2 status enum. §7.2 `warnings[]` named as the Client banner source (§3.5). Phase 1 pins packaging and adds a LanceDB pre-filter check (§10). `PATCH` `null` semantics defined (§8.1).
 
 ---
 
@@ -33,10 +33,10 @@ Ten corrections from a review of v3.0. Each is a place where two sections of v3.
 
 | Topic | Decision |
 |---|---|
-| Name | **Pactlify.** Wordmark in the header; clicking it returns to `/`. |
+| Name | **Pactlify.** Wordmark **Pactlify** (marketing bar and mosaic chrome) returns to `/`. |
 | Backend | Two modules only: `rag_engine` and `agent_builder`. FastAPI is thin glue, not a third product. |
-| UI | One React + TypeScript app. Three routes: `/` landing, `/client`, `/admin`. Shared header: **Pactlify** + **Admin \| Client** toggle + KB/job chip. Login and roles replace the toggle later. |
-| Visual systems | Landing + Client: Mosaic Grid Architecture (forest `#1A3C2B`, paper `#F7F7F5`, Space Grotesk + JetBrains Mono, bento, zero shadows). Admin **body**: Promptly pastel card-grid (peach canvas, white rounded cards, colored dots). Header stays mosaic on all pages. |
+| UI | One React + TypeScript app. Four routes: `/` constellation marketing, `/app` mosaic hub, `/client`, `/admin`. Mosaic chrome (**Pactlify** + **Admin \| Client** + KB/job chip) on `/app`, `/client`, and `/admin` only — not on `/`. Login and roles replace the toggle later. |
+| Visual systems | `/`: Constellation Network hero (canvas `#f4f6f2`, ink `#111111`, lime `#a3e635`, Space Grotesk + Inter, SVG node network, no glass). `/app` + Client + mosaic header: Mosaic Grid Architecture (forest `#1A3C2B`, paper `#F7F7F5`, Space Grotesk + JetBrains Mono, bento, zero shadows). Admin **body**: Promptly pastel card-grid (peach canvas, white rounded cards, colored dots). |
 | Vector DB | **LanceDB**, per-process temp directory, discarded on exit. After every restart, admin provides a folder path; the app rebuilds the vector DB. |
 | Process model | **Single worker.** `uvicorn --workers 1`, no `--reload`. The KB and job registry are in-process state. |
 | Who adds documents | Office admin only. One shared knowledge base. Clients never upload. |
@@ -176,8 +176,9 @@ Copied from `Updated Architecture & Build Plan_v1.0.docx`, kept for provenance.
 
 ```
 [ Pactlify — one React app ]
-  chrome: wordmark + Admin | Client toggle + KB/job chip
-  /            mosaic landing
+  /            constellation marketing (Start building → /app)
+  /app         mosaic hub (Ask the corpus / Load documents)
+  chrome on /app /client /admin: wordmark → / + Admin | Client + KB/job chip
   /client      mosaic two-panel (search | Answer/Timeline/Sources + PDF)
   /admin       pastel stack (category cards -> upload -> document table)
         |
@@ -234,7 +235,7 @@ outskillai/
 │       ├── fixtures/              # §7.2 / §7.3 samples for Phase 5
 │       ├── theme/mosaic.css
 │       ├── theme/pastel.css
-│       └── pages/                 # Landing, Client, Admin
+│       └── pages/                 # ConstellationLanding, Landing (/app), Client, Admin
 ├── apps/api/
 │   ├── main.py
 │   ├── routes.py
@@ -274,16 +275,17 @@ outskillai/
 
 ## 3. UI — Pactlify, three screens
 
-Look-and-feel is **in scope**. One app, three routes, two visual systems, one chrome. No per-user history.
+Look-and-feel is **in scope**. One app, four routes, three visual systems, mosaic chrome on the workspace routes only. No per-user history.
 
 References:
 
-- Landing + Client: [Mosaic Grid Architecture Style](https://superdesign.dev/library?category=style&selected=mosaic-grid-architecture-style)
+- Marketing `/`: [Animated Hero Section: Constellation Network Landing Page](https://superdesign.dev/library?category=animation&selected=animated-hero-section-constellation-network-landing-page)
+- `/app` + Client: [Mosaic Grid Architecture Style](https://superdesign.dev/library?category=style&selected=mosaic-grid-architecture-style)
 - Admin body: [Promptly FAQ card-grid-pastel](https://superdesign.dev/library?category=all&selected=promptly-faq-card-grid-pastel&search=two+pannet)
 
 ### 3.1 Shared chrome
 
-Present on `/`, `/client`, and `/admin`.
+Present on `/app`, `/client`, and `/admin`. Hidden on `/`.
 
 | Slot | Content |
 |---|---|
@@ -295,7 +297,7 @@ The toggle is UI convenience, **not** a security boundary. Admin API calls still
 
 ### 3.2 Design tokens
 
-**Mosaic (landing, Client, header on every page)**
+**Mosaic (`/app`, Client, header on workspace pages)**
 
 - Paper background `#F7F7F5`, forest `#1A3C2B`, ink on paper
 - Space Grotesk for display and UI; JetBrains Mono for labels, ids, status, citation chips
@@ -311,9 +313,30 @@ The toggle is UI convenience, **not** a security boundary. Admin API calls still
 
 Do not mix pastel cards into Client, and do not apply mosaic hairlines to Admin category cards.
 
-### 3.3 Landing — `/`
+**Constellation (marketing `/` only)**
 
-Mosaic hero + bento. Empty KB is allowed; this page never starts a job.
+- Cool pale canvas `#f4f6f2`, near-black ink `#111111`, single acid-lime accent `#a3e635`
+- Space Grotesk display headline; Inter subhead; JetBrains Mono eyebrow / trust row
+- Full-bleed inline SVG node-network, CSS keyframe drift; one cluster glows lime
+- Radial fade so the left editorial column stays legible; no glass
+- Primary CTA is solid lime **Start building** → `/app`. Ghost **Load documents** → `/admin`
+
+### 3.3 Marketing — `/`
+
+Constellation hero. No mosaic chrome. This page **never** starts a job and does not call `GET /kb`.
+
+1. Wordmark **Pactlify** (stays on `/`)
+2. Tracked eyebrow `MULTI-AGENT RESEARCH`
+3. Two-line Space Grotesk headline *Ask the Corpus.* — *Ask the* at 64% of the headline size, lime highlight sweep on **Corpus**
+4. Inter subhead: *Pactlify loads a shared folder, then routes Financial, PM, CapEx, and General specialists. They retrieve, optionally search the live web, and cite what they used.*
+5. **Start building** → `/app` (opens the mosaic hub — the previous landing)
+6. Ghost **Load documents** → `/admin`
+7. Trust row: Financial · PM · CapEx · General · Cited PDF
+8. Pipeline strip: **Client** → **UI Interface** → **Multi-Agent Worker** → **Tools** → **RAG Engine** → **Response and Report**
+
+### 3.4 Mosaic hub — `/app`
+
+Mosaic hero + bento. Empty KB is allowed; this page never starts a job. Mosaic chrome is visible.
 
 1. Hero band: mono label `MULTI-AGENT RESEARCH`, headline, one-line pitch. Example: *Pactlify — ask the corpus; specialists cite what they used.*
 2. Mosaic tiles:
@@ -323,7 +346,7 @@ Mosaic hero + bento. Empty KB is allowed; this page never starts a job.
    - Status tile repeating KB state
 3. Footer strip: admin loads a folder; clients only ask. No upload here.
 
-### 3.4 Client — `/client`
+### 3.5 Client — `/client`
 
 Mosaic two-panel. No upload, no source picker, no category cards.
 
@@ -363,7 +386,7 @@ Tabs: **Answer | Timeline | Sources**. A mono job status sits above the tabs, re
 - Job `failed`: short reason, no fabricated answer, PDF stays disabled.
 - The **top-level §7.2 `warnings[]`** renders as a slim banner above the tabs. That array is the job's warning log and is the only one the banner reads; `result.warnings[]` in the §7.3 envelope exists so the PDF and any exported JSON carry the same list, and the two are kept identical by the formatter. Do not merge or de-duplicate them in the UI.
 
-### 3.5 Admin — `/admin`
+### 3.6 Admin — `/admin`
 
 Header stays mosaic. Body is pastel. Admin does not run research questions.
 
@@ -406,23 +429,25 @@ Columns required: **id**, **name**, **category** (effective). Optional extras: t
 - Missing/wrong token → `401`.
 - Unreadable file / bad URL → skip, list below the table, continue.
 
-### 3.6 Frontend layout
+### 3.7 Frontend layout
 
 ```
 frontend/src/
 ├── App.tsx                 # chrome + routes
-├── api.ts                  # the only HTTP client; mirrors §3.7 + §8
-├── pages/Landing.tsx
+├── api.ts                  # the only HTTP client; mirrors §3.8 + §8
+├── pages/ConstellationLanding.tsx
+├── pages/Landing.tsx       # mosaic hub at /app
 ├── pages/Client.tsx
 ├── pages/Admin.tsx
 ├── stores/documentStore.ts # session copy of DocumentInfo[] + last ingest meta
 ├── fixtures/               # §7.2 / §7.3 samples; Phase 5 builds against these
+├── theme/constellation.css
 ├── theme/mosaic.css
 ├── theme/pastel.css
 └── types.ts
 ```
 
-### 3.7 Frontend ↔ API map (source of truth)
+### 3.8 Frontend ↔ API map (source of truth)
 
 Every UI action calls exactly one of these. No other HTTP endpoints exist in this slice. `PATCH /admin/documents/{id}` is implemented on the backend and **not called** by the first-slice UI.
 
@@ -444,7 +469,7 @@ Shared error body (all 4xx):
 
 | UI surface | When | Call | Success | UI on failure |
 |---|---|---|---|---|
-| Chrome + Landing status tile | Mount, after ingest success, every ~5s | `GET /kb` | `{ loaded, document_count }` | Chip shows `KB empty` if the call fails |
+| Chrome + `/app` status tile | Mount, after ingest success, every ~5s | `GET /kb` | `{ loaded, document_count }` | Chip shows `KB empty` if the call fails |
 | Admin first visit | Before any `/admin/*` | none (local prompt) | token in memory | — |
 | Admin mount | After token | `GET /admin/status` then `GET /admin/documents` | hydrate path field, failures, table | `401` → re-prompt token; empty list → *No documents loaded.* |
 | Admin Submit | Click Submit | `POST /admin/ingest` | replace `documentStore` + table from `documents`; show `failed_*` under the table; refresh `GET /kb` | `401` re-prompt; `403` path rejected; `400` folder error; previous table/KB stay |
@@ -477,7 +502,7 @@ Shared error body (all 4xx):
 
 **`urls.txt` fetching** runs with a **10s per-URL timeout** and **at most 5 concurrent** fetches, capped at `MAX_URLS` entries and `MAX_URL_BYTES` per response, and skips any response whose `Content-Type` is not HTML or plain text. Without the timeout, §9's "bad URL → skip and list as failed" is unreachable, because a hanging request never becomes an error. Without the byte cap, one link to a large binary exhausts memory during a demo.
 
-**Ingest is bounded before it is attempted.** Count files and stat their sizes first. A folder over `MAX_FILES`, or a single file over `MAX_FILE_MB`, is rejected or skipped per §4.6 *before* any parsing — not discovered 200 seconds into a synchronous request that the frontend is about to abandon. Ingest stays synchronous (§3.7) precisely because these caps keep it short; if the caps are ever raised meaningfully, convert ingest to a job with its own id and reuse the existing registry and polling.
+**Ingest is bounded before it is attempted.** Count files and stat their sizes first. A folder over `MAX_FILES`, or a single file over `MAX_FILE_MB`, is rejected or skipped per §4.6 *before* any parsing — not discovered 200 seconds into a synchronous request that the frontend is about to abandon. Ingest stays synchronous (§3.8) precisely because these caps keep it short; if the caps are ever raised meaningfully, convert ingest to a job with its own id and reuse the existing registry and polling.
 
 **Duplicate suppression is scoped to a single document.** Hash chunk content per document and skip exact duplicates within that document. Repeated headers and footers otherwise crowd out real evidence inside `TOP_K`.
 
@@ -604,7 +629,7 @@ All of these live in `shared/config.py`. Nothing in the pipeline is unbounded.
 
 **`JOB_TIMEOUT` is 300s, not 150s, because Phase 3 permits sequential agents.** Four agents at `AGENT_TIMEOUT = 60s` is 240s of worst-case agent time before routing and formatting are counted. Under a 150s budget the documented "ship sequential if time gets tight" fallback would truncate every three- or four-agent query, and it would look like an agent bug rather than a budget arithmetic error. With `Send` parallelism the wall clock is closer to 60–90s and the ceiling never binds; 300s exists for the fallback path.
 
-The frontend has no matching query timeout to change: the Client polls `GET /status/{job_id}`, so a long job is a long poll loop, not a long request. The 300s frontend timeout in §3.7 applies to synchronous ingest only, and the two numbers being equal is a coincidence, not a shared constant.
+The frontend has no matching query timeout to change: the Client polls `GET /status/{job_id}`, so a long job is a long poll loop, not a long request. The 300s frontend timeout in §3.8 applies to synchronous ingest only, and the two numbers being equal is a coincidence, not a shared constant.
 
 For scale: a four-agent question is up to **10 LLM calls** (1 routing + 4 × (rewrite + synthesis) + 1 formatting) plus up to 4 web searches. Not a cost problem on `gpt-4o-mini`. Very much a latency problem, which is what these bounds exist for.
 
@@ -788,7 +813,7 @@ Custom JSON will be supplied later and loaded from `resource` / `out`. Until the
 }
 ```
 
-Every `citation_id` in `sections` resolves to a real chunk that the citing agent actually retrieved, enforced per §7.1 — which is a weaker and more accurate claim than "every claim is cited." The formatter applies this shape once after merge. Agents do not invent the final envelope. `warnings` here is a copy of the top-level §7.2 `warnings[]` so exports and the PDF carry the same list; the Client banner reads the §7.2 one (§3.4).
+Every `citation_id` in `sections` resolves to a real chunk that the citing agent actually retrieved, enforced per §7.1 — which is a weaker and more accurate claim than "every claim is cited." The formatter applies this shape once after merge. Agents do not invent the final envelope. `warnings` here is a copy of the top-level §7.2 `warnings[]` so exports and the PDF carry the same list; the Client banner reads the §7.2 one (§3.5).
 
 `cross_category: true` on a citation must be visible in the UI. It is the difference between "your PM documents say this" and "no PM document covered it, so here is related material."
 
@@ -800,11 +825,11 @@ Rendering is **eager** — it happens inside the formatting step, so `GET /repor
 
 ## 8. API layer
 
-Frontend call map is §3.7. This section is the wire contract. Auth on `/admin/*` is the header `Authorization: Bearer <ADMIN_TOKEN>` (the raw token, not a login JWT). CORS allows that header from the React origin.
+Frontend call map is §3.8. This section is the wire contract. Auth on `/admin/*` is the header `Authorization: Bearer <ADMIN_TOKEN>` (the raw token, not a login JWT). CORS allows that header from the React origin.
 
 | Endpoint | Auth | Caller | Purpose |
 |---|---|---|---|
-| `GET /kb` | none | Chrome, Landing, Client | `{ "loaded": bool, "document_count": int }`. No folder path, no filenames. |
+| `GET /kb` | none | Chrome, `/app`, Client | `{ "loaded": bool, "document_count": int }`. No folder path, no filenames. |
 | `GET /admin/status` | Bearer | Admin mount | Last folder, counts, last ingest failures. |
 | `GET /admin/documents` | Bearer | Admin mount | `{ "documents": DocumentInfo[] }`. Empty KB → `200` with `[]`, not 404. |
 | `POST /admin/ingest` | Bearer | Admin Submit | Synchronous folder ingest. Optional `category` stamp. Returns `IngestResult`. |
@@ -985,7 +1010,7 @@ The RAG engine is still completed and tested before agent work begins. **The one
 
 **Why the UI moved.** Look-and-feel is in scope (§3), there are two visual systems to get right, and v3.0 scheduled all of it last — so the most demo-visible work sat behind the most integration-prone work, with no slack if either ran long. Nothing about the UI needs a live backend: §7.3 is a fixed envelope, so the Client screen can be built against two or three hand-written fixture files (one multi-agent answer, one with a `CROSS` citation, one `failed` job) and every tab, chip, badge, and empty state exercised deterministically. Fixtures also cover states that are tedious to produce on demand — a failed agent beside successful ones, a dropped-citation warning — which are the states most likely to appear during judging.
 
-The cost is one extra integration step in Phase 6: swap `api.ts` from fixtures to `fetch`. That step is cheap precisely because §3.7 already pins every call, status code, and field name. Keep the fixtures afterward as the frontend's test data.
+The cost is one extra integration step in Phase 6: swap `api.ts` from fixtures to `fetch`. That step is cheap precisely because §3.8 already pins every call, status code, and field name. Keep the fixtures afterward as the frontend's test data.
 
 **Accepted risk.** With horizontal phases there is no end-to-end path until Phase 6, so integration bugs still surface late. Three hedges that do not change the structure:
 
@@ -1031,7 +1056,7 @@ Save real formatter output to `frontend/src/fixtures/` as you go — Phase 5 con
 
 Implement §3. Mosaic landing. Client two-panel with Answer / Timeline / Sources and Download PDF. Admin pastel category cards, folder-path Submit, document table (id, name, category) backed by `documentStore`. Shared chrome and toggle on every route.
 
-`api.ts` reads from fixtures behind the exact §3.7 function signatures, so Phase 6 changes the body of each function and nothing else. Cover at minimum: a multi-agent completed job, a job with a `CROSS` citation, a job with one `failed` agent beside successful ones, a job with a dropped-citation warning, a `failed` job, an empty KB, and a populated document table. Every one of the seven §7.2 statuses needs a label.
+`api.ts` reads from fixtures behind the exact §3.8 function signatures, so Phase 6 changes the body of each function and nothing else. Cover at minimum: a multi-agent completed job, a job with a `CROSS` citation, a job with one `failed` agent beside successful ones, a job with a dropped-citation warning, a `failed` job, an empty KB, and a populated document table. Every one of the seven §7.2 statuses needs a label.
 
 Generate `types.ts` from the FastAPI OpenAPI schema once Phase 6 exists, or hand-write it against §7 now and regenerate later. Do not let the response shape live in two hand-maintained places.
 
@@ -1129,12 +1154,12 @@ Sample folder (flat — no subdirectories) with 1–2 PDFs, 1 CSV, 1 TXT, `urls.
 
 | Decision | Why |
 |---|---|
-| Two backend modules + one UI | RAG can be tested alone. Agents only call `retrieve()`. One app, three routes, instead of two frontends. |
+| Two backend modules + one UI | RAG can be tested alone. Agents only call `retrieve()`. One app, four routes, instead of two frontends. |
 | Pactlify + mosaic / pastel split | Landing and Client need an architectural research feel; Admin needs a calm upload surface. One chrome keeps them one product. |
 | Optional category stamp | Default stays auto-detect. A selected card is an explicit admin override for the whole folder, including `policy` at ingest time. |
 | Client tabs + PDF | Timeline is inspectable without crowding the answer. PDF is a real demo control, generated from the same envelope. |
 | `documentStore` | Admin table must still show id / name / category after toggling away. Server list remains source of truth. |
-| One HTTP map (§3.7 + §8.1) | Frontend `api.ts` and FastAPI share field names, status codes, and the Bearer header. No second informal contract. |
+| One HTTP map (§3.8 + §8.1) | Frontend `api.ts` and FastAPI share field names, status codes, and the Bearer header. No second informal contract. |
 | FastAPI as glue | Holds keys, CORS, and the job registry. Not a third domain package. |
 | LanceDB in a temp dir | Free, no server, no API gamble. Restart behaviour matches the in-memory intent. |
 | Local HuggingFace embeddings | OpenRouter does not provide embeddings. No extra embedding API key. |

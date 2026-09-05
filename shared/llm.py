@@ -10,14 +10,20 @@ import httpx
 
 from shared.config import LLM_TIMEOUT
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+
+def _openrouter_key() -> str:
+    return os.getenv("OPENROUTER_API_KEY", "")
+
+
+def _openrouter_model() -> str:
+    return os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
 
 
 def _base_headers() -> dict[str, str]:
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {_openrouter_key()}",
         "Content-Type": "application/json",
     }
 
@@ -54,7 +60,7 @@ async def chat(
     response_format: dict | None = None,
 ) -> str:
     payload: dict[str, Any] = {
-        "model": OPENROUTER_MODEL,
+        "model": _openrouter_model(),
         "messages": messages,
     }
     if response_format is not None:

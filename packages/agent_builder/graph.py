@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import threading
+import time
+
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Send
 
 from packages.agent_builder.capex_agent import run_capex
 from packages.agent_builder.financial_agent import run_financial
 from packages.agent_builder.general_agent import run_general
-from packages.agent_builder.parent_agent import ACTIVATION_ORDER, route
+from packages.agent_builder.parent_agent import ACTIVATION_ORDER, decide
 from packages.agent_builder.pm_agent import run_pm
 from packages.agent_builder.specialist import failed_payload, run_with_timeout
 from packages.agent_builder.state import AgentState
@@ -32,18 +35,15 @@ def build_graph(
     graph = StateGraph(AgentState)
 
     def route_node(state: AgentState) -> dict:
-        activated = route(state.get("query") or "", built, chat_sync=chat_sync)
-        return {"activated": activated}
+        activated, needs = decide(state.get("query") or "", built, chat_sync=chat_sync)
+        return {"activated": activated, "needs_current_info": needs}
 
     def fanout(state: AgentState):
         activated = [name for name in (state.get("activated") or []) if name in built and name in runners]
         return [Send(name, dict(state)) for name in activated]
 
     def merge_node(state: AgentState) -> dict:
-        order = {name: index for index, name in enumerate(ACTIVATION_ORDER)}
-        findings = list(state.get("findings") or [])
-        findings.sort(key=lambda item: order.get(item.get("agent"), 99))
-        return {"merged_findings": findings}
+        return {"merged_findings": _sorted_findings(state.get("findings") or [])}
 
     graph.add_node("route", route_node)
     graph.add_node("merge", merge_node)
@@ -73,6 +73,7 @@ def run_job(
     compiled = graph or build_graph(built, chat_sync=chat_sync, **kwargs)
     job_updater("queued")
     job_updater("routing")
+    progress = _new_progress()
     initial = {
         "query": query,
         "built": list(built),
@@ -82,27 +83,85 @@ def run_job(
         "timeline_events": [],
         "warnings": [],
         "merged_findings": [],
+        "needs_current_info": False,
+        "progress": progress,
     }
     job_updater("running")
     try:
         result = run_with_timeout(lambda: compiled.invoke(initial), job_timeout)
     except TimeoutError:
-        result = {**initial, "warnings": ["JOB_TIMEOUT"]}
+        result = _result_from_progress(initial, progress)
+    result.pop("progress", None)
     job_updater("merging")
     job_updater("formatting")
-    job_updater("completed")
     return result
 
 
 def _wrap_agent(name: str, fn, agent_timeout: float):
     def node(state: AgentState) -> dict:
+        payload = dict(state)
+        progress = state.get("progress")
         try:
             if agent_timeout is None or agent_timeout <= 0:
-                return fn(state)
-            return run_with_timeout(lambda: fn(state), agent_timeout)
+                out = fn(payload)
+            else:
+                payload["deadline"] = time.monotonic() + agent_timeout
+
+                def work():
+                    value = fn(payload)
+                    _record_progress(progress, value)
+                    return value
+
+                out = run_with_timeout(work, agent_timeout)
+                return out
         except TimeoutError:
-            return failed_payload(name, error=f"AGENT_TIMEOUT after {agent_timeout}s")
+            out = failed_payload(name, error=f"AGENT_TIMEOUT after {agent_timeout}s")
         except Exception as error:
-            return failed_payload(name, error=str(error))
+            out = failed_payload(name, error=str(error))
+        _record_progress(progress, out)
+        return out
 
     return node
+
+
+def _new_progress() -> dict:
+    return {
+        "lock": threading.Lock(),
+        "findings": [],
+        "timeline_events": [],
+        "warnings": [],
+    }
+
+
+def _record_progress(progress: dict | None, payload: dict) -> None:
+    if not progress:
+        return
+    with progress["lock"]:
+        progress["findings"].extend(payload.get("findings") or [])
+        progress["timeline_events"].extend(payload.get("timeline_events") or [])
+        progress["warnings"].extend(payload.get("warnings") or [])
+
+
+def _result_from_progress(initial: dict, progress: dict) -> dict:
+    with progress["lock"]:
+        findings = list(progress["findings"])
+        timeline = list(progress["timeline_events"])
+        warnings = list(progress["warnings"])
+    if "JOB_TIMEOUT" not in warnings:
+        warnings.append("JOB_TIMEOUT")
+    findings = _sorted_findings(findings)
+    return {
+        **initial,
+        "findings": findings,
+        "timeline_events": timeline,
+        "warnings": warnings,
+        "merged_findings": findings,
+        "activated": [item.get("agent") for item in findings if item.get("agent")],
+    }
+
+
+def _sorted_findings(findings: list) -> list:
+    order = {name: index for index, name in enumerate(ACTIVATION_ORDER)}
+    ranked = list(findings)
+    ranked.sort(key=lambda item: order.get(item.get("agent"), 99))
+    return ranked

@@ -93,3 +93,62 @@ def test_quote_is_substring_of_chunk_content():
         handed={"pm": [chunk]},
     )
     assert envelope["citations"][0]["quote"] in chunk.content
+
+
+def test_web_chunk_becomes_web_citation():
+    web = Chunk(
+        chunk_id="web_1",
+        content="Markets rallied on Friday.",
+        metadata=ChunkMetadata(
+            document_id="live_web",
+            source="https://example.com/news",
+            type="web",
+            category="uncategorized",
+            auto_category="uncategorized",
+        ),
+    )
+    envelope = format_job(
+        query="latest markets?",
+        activated=["financial"],
+        findings=[_finding("financial", used_chunk_ids=["web_1"])],
+        handed={"financial": [web]},
+    )
+    assert len(envelope["citations"]) == 1
+    assert envelope["citations"][0]["id"] == "c1"
+    assert envelope["citations"][0]["type"] == "web"
+    assert envelope["citations"][0]["source"] == "https://example.com/news"
+    assert envelope["answer"]["sections"][0]["citation_ids"] == ["c1"]
+
+
+def test_multi_agent_summary_is_labeled_not_space_joined():
+    envelope = format_job(
+        query="q",
+        activated=["financial", "pm"],
+        findings=[
+            {
+                "agent": "financial",
+                "title": "Financial",
+                "summary": "East is over budget.",
+                "body": "body",
+                "key_points": [],
+                "used_chunk_ids": [],
+                "citation_ids": [],
+            },
+            {
+                "agent": "pm",
+                "title": "Project Manager",
+                "summary": "November slip risk.",
+                "body": "body",
+                "key_points": [],
+                "used_chunk_ids": [],
+                "citation_ids": [],
+            },
+        ],
+        handed={"financial": [], "pm": []},
+    )
+    summary = envelope["answer"]["summary"]
+    assert "East is over budget." in summary
+    assert "November slip risk." in summary
+    assert "Financial:" in summary
+    assert "Project Manager:" in summary
+    assert "East is over budget. November slip risk." not in summary

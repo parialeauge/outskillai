@@ -182,6 +182,19 @@ function authHeaders(): HeadersInit {
 }
 
 async function parseError(res: Response): Promise<never> {
-  const body = (await res.json()) as ApiErrorBody;
-  fail(res.status, body.error, body.message);
+  try {
+    const parsed = (await res.json()) as Record<string, unknown>;
+    const detail = parsed.detail;
+    const nested = typeof detail === "object" && detail !== null ? (detail as Record<string, unknown>) : null;
+    const error = String(parsed.error || nested?.error || "error");
+    const message = String(
+      parsed.message || nested?.message || (typeof detail === "string" ? detail : "") || res.statusText || "Request failed.",
+    );
+    fail(res.status, error, message);
+  } catch (caught) {
+    if (caught && typeof caught === "object" && "status" in caught) {
+      throw caught;
+    }
+    fail(res.status, "error", res.statusText || "Request failed.");
+  }
 }

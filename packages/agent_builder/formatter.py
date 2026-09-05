@@ -64,9 +64,7 @@ def format_job(
             }
         )
 
-    summary = " ".join(
-        str(by_agent[agent].get("summary") or "").strip() for agent in ordered_agents
-    ).strip()
+    summary = _merged_summary(ordered_agents, by_agent)
     envelope = {
         "job_id": job_id,
         "query": query,
@@ -103,6 +101,22 @@ def quote_from_chunk(chunk: Chunk) -> str:
     if quote == header:
         quote = f"{header}\n{data_lines[0]}"
     return quote
+
+
+def _merged_summary(ordered_agents: list[str], by_agent: dict) -> str:
+    parts: list[tuple[str, str]] = []
+    for agent in ordered_agents:
+        finding = by_agent[agent]
+        text = str(finding.get("summary") or "").strip()
+        if not text:
+            continue
+        title = str(finding.get("title") or agent).strip()
+        parts.append((title, text))
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0][1]
+    return "\n\n".join(f"{title}: {text}" for title, text in parts)
 
 
 def _citation(cite_id: str, chunk: Chunk) -> dict:

@@ -1,4 +1,4 @@
-from packages.agent_builder.parent_agent import FIRST_SLICE_FALLBACK, route
+from packages.agent_builder.parent_agent import FIRST_SLICE_FALLBACK, decide, route
 
 
 def test_pm_only_question_activates_pm():
@@ -45,3 +45,30 @@ def test_routing_failure_activates_general_when_built():
         built={"pm", "financial", "capex", "general"},
         chat_sync=chat_sync,
     ) == ["general"]
+
+
+def test_router_requests_json_schema_response_format():
+    captured: dict = {}
+
+    def chat_sync(messages, **kwargs):
+        captured.update(kwargs)
+        return '{"agents": ["pm"]}'
+
+    route("What is the project timeline?", built={"pm"}, chat_sync=chat_sync)
+    fmt = captured.get("response_format") or {}
+    assert fmt.get("type") == "json_schema"
+    schema = (fmt.get("json_schema") or {}).get("schema") or {}
+    assert "agents" in schema.get("properties", {})
+
+
+def test_decide_reads_needs_current_info_from_router_json():
+    def chat_sync(messages, **kwargs):
+        return '{"agents": ["general"], "needs_current_info": true}'
+
+    agents, needs = decide(
+        "what happened this week?",
+        built={"general", "pm"},
+        chat_sync=chat_sync,
+    )
+    assert agents == ["general"]
+    assert needs is True

@@ -3,15 +3,18 @@ name = "pactlify"
 version = "0.4.0"
 requires-python = ">=3.11"
 dependencies = [
+  "numpy==1.26.4",
+  "pandas==2.2.3",
+  "torch==2.2.2",
+  "transformers==4.46.3",
   "fastapi",
   "uvicorn[standard]",
   "lancedb",
-  "sentence-transformers",
+  "sentence-transformers==3.4.1",
   "langgraph",
   "langchain-openai",
   "httpx",
   "pymupdf",
-  "pandas",
   "python-dotenv",
   "pydantic",
   "tavily-python",

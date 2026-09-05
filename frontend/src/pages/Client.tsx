@@ -18,6 +18,7 @@ export default function Client() {
   const [inline, setInline] = useState<string | null>(null);
   const [job, setJob] = useState<JobStatusPayload | null>(null);
   const [lost, setLost] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [tab, setTab] = useState<"answer" | "timeline" | "sources">("answer");
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -42,12 +43,20 @@ export default function Client() {
         } else {
           setJobChip(null);
         }
-        if (payload.status === "completed" || payload.status === "failed") return;
+        if (payload.status === "failed") {
+          setSubmitting(false);
+          return;
+        }
+        if (payload.status === "completed" && payload.result) {
+          setSubmitting(false);
+          return;
+        }
         window.setTimeout(() => void poll(), 1000);
       } catch (error) {
         if (stop) return;
         setJobChip(null);
         if (isApiError(error) && error.status === 404) {
+          setSubmitting(false);
           setLost(true);
           setJob(null);
           return;
@@ -61,20 +70,21 @@ export default function Client() {
     };
   }, [jobId]);
 
-  async function ask(): Promise<void> {
+  async function submit(): Promise<void> {
     const trimmed = question.trim();
-    if (!trimmed) {
-      setInline("Enter a question.");
-      return;
-    }
+    if (!trimmed || !loaded) return;
     setInline(null);
     setLost(false);
+    setSubmitting(true);
+    setTab("answer");
+    setJobId(null);
+    setJob(null);
     try {
       const { job_id } = await postQuery(trimmed);
-      setTab("answer");
       setJobId(job_id);
       setJobChip("Job running");
     } catch (error) {
+      setSubmitting(false);
       if (isApiError(error) && error.body.error === "kb_empty") {
         setLoaded(false);
         setInline("Knowledge base not loaded — ask admin.");
@@ -88,7 +98,8 @@ export default function Client() {
     }
   }
 
-  const askDisabled = !loaded;
+  const pending = submitting || (job != null && RUNNING.includes(job.status));
+  const submitDisabled = !loaded || !question.trim() || pending;
   const statusLabel = job ? JOB_STATUS_LABELS[job.status] : lost ? "FAILED" : null;
 
   return (
@@ -101,16 +112,16 @@ export default function Client() {
           onChange={(event) => setQuestion(event.target.value)}
           placeholder="Ask the corpus"
         />
-        <button className="btn-primary" type="button" disabled={askDisabled} onClick={() => void ask()}>
-          Ask
+        <button className="btn-primary" type="button" disabled={submitDisabled} onClick={() => void submit()}>
+          Submit
         </button>
         <p className="helper">Parent routes to Financial, PM, CapEx, General.</p>
-        {askDisabled ? <p className="inline-error">Knowledge base not loaded — ask admin.</p> : null}
+        {!loaded ? <p className="inline-error">Knowledge base not loaded — ask admin.</p> : null}
         {inline ? <p className="inline-error">{inline}</p> : null}
       </aside>
       <section className="client-right">
         {lost ? <p>Job no longer available — please ask again.</p> : null}
-        {statusLabel ? <p className="status-label">{statusLabel}</p> : null}
+        {statusLabel && !pending ? <p className="status-label">{statusLabel}</p> : null}
         {job && job.warnings.length > 0 ? (
           <div className="banner">
             {job.warnings.map((warning) => (
@@ -133,6 +144,7 @@ export default function Client() {
           <AnswerTab
             job={job}
             lost={lost}
+            pending={pending}
             onCiteClick={(id) => {
               setHighlightId(id);
               setTab("sources");
