@@ -1,0 +1,95 @@
+{
+  "job_id": "job_fixture",
+  "status": "completed",
+  "query": "What is the timeline and financial impact?",
+  "created_at": "2026-09-05T16:00:00Z",
+  "activated_agents": [
+    "financial",
+    "pm"
+  ],
+  "timeline": [
+    {
+      "agent": "financial",
+      "status": "done",
+      "started_at": "2026-09-05T16:00:01Z",
+      "finished_at": "2026-09-05T16:00:08Z",
+      "chunks_retrieved": 4,
+      "primary_count": 4,
+      "used_live_web": false,
+      "error": null
+    },
+    {
+      "agent": "pm",
+      "status": "done",
+      "started_at": "2026-09-05T16:00:01Z",
+      "finished_at": "2026-09-05T16:00:08Z",
+      "chunks_retrieved": 3,
+      "primary_count": 3,
+      "used_live_web": false,
+      "error": null
+    }
+  ],
+  "warnings": [],
+  "error": null,
+  "result": {
+    "job_id": "job_fixture",
+    "query": "What is the timeline and financial impact?",
+    "activated_agents": [
+      "financial",
+      "pm"
+    ],
+    "answer": {
+      "summary": "Budget is tight in Q1. Hiring freeze delays the milestone.",
+      "sections": [
+        {
+          "agent": "financial",
+          "title": "Financial",
+          "body": "East region is over budget.",
+          "key_points": [
+            "East Q1 over budget"
+          ],
+          "citation_ids": [
+            "c1"
+          ]
+        },
+        {
+          "agent": "pm",
+          "title": "Project Manager",
+          "body": "November slip if hiring stays frozen.",
+          "key_points": [
+            "November slip risk"
+          ],
+          "citation_ids": [
+            "c2"
+          ]
+        }
+      ]
+    },
+    "citations": [
+      {
+        "id": "c1",
+        "source": "budget.csv",
+        "type": "csv",
+        "category": "financial",
+        "page": null,
+        "row_start": 1,
+        "row_end": 2,
+        "cross_category": false,
+        "quote": "region,quarter,revenue,budget\neast,Q1,10,12\nwest,Q1,20,18"
+      },
+      {
+        "id": "c2",
+        "source": "charter.pdf",
+        "type": "pdf",
+        "category": "pm",
+        "page": 1,
+        "row_start": null,
+        "row_end": null,
+        "cross_category": false,
+        "quote": "The milestone slips to November if hiring freezes."
+      }
+    ],
+    "warnings": [],
+    "pdf_available": true
+  }
+}

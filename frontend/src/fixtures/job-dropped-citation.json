@@ -1,0 +1,65 @@
+{
+  "job_id": "job_fixture",
+  "status": "completed",
+  "query": "What is the project timeline?",
+  "created_at": "2026-09-05T16:00:00Z",
+  "activated_agents": [
+    "pm"
+  ],
+  "timeline": [
+    {
+      "agent": "pm",
+      "status": "done",
+      "started_at": "2026-09-05T16:00:01Z",
+      "finished_at": "2026-09-05T16:00:08Z",
+      "chunks_retrieved": 3,
+      "primary_count": 3,
+      "used_live_web": false,
+      "error": null
+    }
+  ],
+  "warnings": [
+    "Dropped chunk id chk_invented from pm (not retrieved by that agent)."
+  ],
+  "error": null,
+  "result": {
+    "job_id": "job_fixture",
+    "query": "What is the project timeline?",
+    "activated_agents": [
+      "pm"
+    ],
+    "answer": {
+      "summary": "Hiring freeze delays the milestone.",
+      "sections": [
+        {
+          "agent": "pm",
+          "title": "Project Manager",
+          "body": "November slip if hiring stays frozen.",
+          "key_points": [
+            "point"
+          ],
+          "citation_ids": [
+            "c1"
+          ]
+        }
+      ]
+    },
+    "citations": [
+      {
+        "id": "c1",
+        "source": "charter.pdf",
+        "type": "pdf",
+        "category": "pm",
+        "page": 1,
+        "row_start": null,
+        "row_end": null,
+        "cross_category": false,
+        "quote": "The milestone slips to November if hiring freezes."
+      }
+    ],
+    "warnings": [
+      "Dropped chunk id chk_invented from pm (not retrieved by that agent)."
+    ],
+    "pdf_available": true
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "job_id": "job_fixture",
+  "status": "completed",
+  "query": "What is the financial impact?",
+  "created_at": "2026-09-05T16:00:00Z",
+  "activated_agents": [
+    "financial"
+  ],
+  "timeline": [
+    {
+      "agent": "financial",
+      "status": "done",
+      "started_at": "2026-09-05T16:00:01Z",
+      "finished_at": "2026-09-05T16:00:08Z",
+      "chunks_retrieved": 1,
+      "primary_count": 0,
+      "used_live_web": true,
+      "error": null
+    }
+  ],
+  "warnings": [],
+  "error": null,
+  "result": {
+    "job_id": "job_fixture",
+    "query": "What is the financial impact?",
+    "activated_agents": [
+      "financial"
+    ],
+    "answer": {
+      "summary": "Related web material fills a gap.",
+      "sections": [
+        {
+          "agent": "financial",
+          "title": "Financial",
+          "body": "No in-domain budget doc covered vendor inflation.",
+          "key_points": [
+            "point"
+          ],
+          "citation_ids": [
+            "c1"
+          ]
+        }
+      ]
+    },
+    "citations": [
+      {
+        "id": "c1",
+        "source": "https://example.com/prices",
+        "type": "web",
+        "category": "uncategorized",
+        "page": null,
+        "row_start": null,
+        "row_end": null,
+        "cross_category": true,
+        "quote": "Vendor pricing rose 8% this quarter on public filings."
+      }
+    ],
+    "warnings": [],
+    "pdf_available": true
+  }
+}
