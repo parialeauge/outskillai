@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+import threading
 from typing import Any, Callable
 
 from shared.config import AGENT_TIMEOUT
@@ -56,12 +56,11 @@ def run_specialist(
     try:
         if timeout is None or timeout <= 0:
             return work()
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(work).result(timeout=timeout)
-    except FuturesTimeout:
-        return _failed(name, error=f"AGENT_TIMEOUT after {timeout}s")
+        return run_with_timeout(work, timeout)
+    except TimeoutError:
+        return failed_payload(name, error=f"AGENT_TIMEOUT after {timeout}s")
     except Exception as error:
-        return _failed(name, error=str(error))
+        return failed_payload(name, error=str(error))
 
 
 def _run_body(
@@ -140,7 +139,26 @@ def _run_body(
     }
 
 
-def _failed(name: str, error: str) -> dict:
+def run_with_timeout(fn: Callable[[], Any], timeout: float) -> Any:
+    box: dict[str, Any] = {}
+
+    def target() -> None:
+        try:
+            box["value"] = fn()
+        except Exception as error:  # noqa: BLE001
+            box["error"] = error
+
+    worker = threading.Thread(target=target, daemon=True)
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        raise TimeoutError(f"timed out after {timeout}s")
+    if "error" in box:
+        raise box["error"]
+    return box.get("value")
+
+
+def failed_payload(name: str, error: str) -> dict:
     return {
         "findings": [],
         "timeline_events": [
