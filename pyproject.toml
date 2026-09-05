@@ -1,0 +1,30 @@
+[project]
+name = "pactlify"
+version = "0.4.0"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "lancedb",
+  "sentence-transformers",
+  "langgraph",
+  "langchain-openai",
+  "httpx",
+  "pymupdf",
+  "pandas",
+  "python-dotenv",
+  "pydantic",
+  "tavily-python",
+  "weasyprint",
+  "reportlab",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio", "httpx"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["apps*", "packages*", "shared*"]
