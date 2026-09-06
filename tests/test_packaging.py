@@ -137,12 +137,16 @@ def test_editable_metadata_tracks_backend_package():
     assert f"Version: {version}" in info.read_text()
 
 
-def test_vercel_package_uses_fastapi_entrypoint_not_legacy_builds():
+def test_vercel_is_frontend_only_not_a_fastapi_function():
     config = json.loads((ROOT / "vercel.json").read_text())
     assert "builds" not in config
     assert "routes" not in config
-    assert config["functions"]["apps/api/main.py"]["maxDuration"] == 300
+    assert "functions" not in config
+    assert config["framework"] == "vite"
+    assert config["outputDirectory"] == "frontend/dist"
     project = tomllib.loads((ROOT / "pyproject.toml").read_text())
-    assert project["tool"]["vercel"]["entrypoint"] == "apps.api.main:app"
-    assert "npm run build" in project["tool"]["vercel"]["scripts"]["build"]
+    assert "vercel" not in project.get("tool", {})
+    ignore = (ROOT / ".vercelignore").read_text()
+    assert "frontend/" in ignore
+    assert (ROOT / "frontend" / "vercel.json").is_file()
     assert (ROOT / "scripts" / "build_package.sh").is_file()

@@ -825,6 +825,8 @@ npx tsc --noEmit
 
 Three Docker packages. Build them from this directory (`outskillai/`). Copy `.env.example` to `.env` first (backend and combined need it). First backend/combined build downloads MiniLM and PyTorch — expect several minutes. Both API images copy `langgraph.json` so the Studio graph id `pactlify` is in the image; set `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` in `.env` to send traces from the running container.
 
+Do **not** deploy the FastAPI app to Vercel. The MiniLM/PyTorch install is ~5 GB and exceeds the 500 MB Python function cap; Hobby also limits function RAM to 2048 MB. Run the API in Docker ([§7.1](#71-backend-only) or [§7.3](#73-combined-frontend-and-backend)). Vercel is optional and **frontend-only** ([§7.4](#74-vercel-ui--docker-api)).
+
 In Admin, the sample corpus path inside a container is:
 
 ```text
@@ -891,9 +893,11 @@ Open http://localhost:8000 — constellation `/`, mosaic `/app`, `/client`, and 
 | Frontend | `pactlify-frontend:0.6.0` | `:5173` → nginx `:80` | yes | talks to host `:8000` |
 | Combined | `pactlify:0.6.0` | `:8000` | yes | yes, same origin |
 
-### 7.4 Local build package (and Vercel)
+### 7.4 Vercel UI + Docker API
 
-Build the Vite UI into `frontend/dist`. FastAPI serves it automatically when that folder exists (or when `STATIC_DIR` is set).
+The public demo that fits Hobby: **API in Docker**, **UI on Vercel**. The simpler one-box demo is still [§7.3](#73-combined-frontend-and-backend) (no Vercel).
+
+Local package without Docker (FastAPI serves `frontend/dist`):
 
 ```bash
 chmod +x scripts/build_package.sh
@@ -903,13 +907,44 @@ STATIC_DIR="$(pwd)/frontend/dist" \
   python -m uvicorn apps.api.main:app --workers 1 --host 127.0.0.1 --port 8000
 ```
 
-Vercel: `vercel.json` is current FastAPI config (no legacy `builds` / `routes`). `pyproject.toml` sets `tool.vercel.entrypoint` to `apps.api.main:app` and a frontend `npm run build` as the Vercel build script. From this directory, after `vercel link`:
+#### API host (required)
+
+Run the backend image on any Docker host that gives you a **public HTTPS URL**. Browsers on a Vercel page cannot call `localhost:8000`.
+
+```bash
+docker compose -f docker-compose.backend.yml up --build
+```
+
+Or build and run the image on Railway, Render, Fly, or a VM:
+
+```bash
+docker build -f Dockerfile.backend -t pactlify-backend:0.6.0 .
+docker run --rm --env-file .env -e ALLOWED_INGEST_ROOT=/app \
+  -e CORS_ORIGIN=https://YOUR-APP.vercel.app \
+  -p 8000:8000 pactlify-backend:0.6.0
+```
+
+Set API env on that host (not on Vercel): `ADMIN_TOKEN`, `ALLOWED_INGEST_ROOT=/app`, `OPENROUTER_API_KEY`, and `CORS_ORIGIN` including the Vercel origin (comma-separated if you also keep local Vite):
+
+```text
+CORS_ORIGIN=http://localhost:5173,https://YOUR-APP.vercel.app
+```
+
+In Admin, the sample folder inside the container is `/app/sample_data`. The in-memory KB dies when the container stops.
+
+#### Vercel (UI only)
+
+`vercel.json` builds the Vite app in `frontend/` and publishes `frontend/dist`. `.vercelignore` keeps Python/PyTorch out of the upload. In the Vercel project:
+
+1. Framework Preset: **Vite** (not Python / FastAPI).
+2. Root Directory: this folder (`outskillai/`), or `outskillai/frontend`.
+3. Environment variable **`VITE_API_BASE_URL`** = the public API URL (no trailing slash). Vite bakes this in at build time.
 
 ```bash
 npx vercel
 ```
 
-Set at least `ADMIN_TOKEN`, `ALLOWED_INGEST_ROOT`, `OPENROUTER_API_KEY`, and (for traces) `LANGSMITH_TRACING` / `LANGSMITH_API_KEY` in the Vercel project env. The in-memory KB and MiniLM/PyTorch payload are a poor fit for a cold-start function — prefer the combined Docker image for a demo. Job timeout is 300s on the FastAPI function.
+Do not set `ADMIN_TOKEN` or OpenRouter keys on Vercel. After you know the Vercel URL, update `CORS_ORIGIN` on the API and restart the container. If the Framework Preset is still Python from an earlier deploy, change it to Vite and redeploy.
 
 ---
 
@@ -935,7 +970,7 @@ Backend `.env` (from `.env.example`):
 |---|---|---|
 | `ADMIN_TOKEN` | yes | Typed into the Admin prompt |
 | `ALLOWED_INGEST_ROOT` | yes | Absolute path; must contain `sample_data`. In Docker this is `/app` |
-| `CORS_ORIGIN` | no | Comma-separated. Default `http://localhost:5173`. Combined image uses `http://localhost:8000` |
+| `CORS_ORIGIN` | no | Comma-separated. Default `http://localhost:5173`. Combined image uses `http://localhost:8000`. For a Vercel UI, add that origin |
 | `STATIC_DIR` | combined Docker only | Directory of the Vite `dist` (image default `/app/ui`) |
 | `OPENROUTER_API_KEY` | for real answers | Routing + specialist synthesis |
 | `OPENROUTER_MODEL` | no | Default `openai/gpt-4o-mini` |
@@ -946,4 +981,4 @@ Backend `.env` (from `.env.example`):
 | `LANGSMITH_ENDPOINT` | no | Only if your LangSmith workspace is not US |
 | `EMBEDDING_MODEL` | no | Default `sentence-transformers/all-MiniLM-L6-v2` |
 
-Frontend `.env`: only `VITE_API_BASE_URL` (and optional `VITE_USE_FIXTURES`).
+Frontend `.env`: only `VITE_API_BASE_URL` (and optional `VITE_USE_FIXTURES`). On Vercel, set `VITE_API_BASE_URL` to the public Docker API — not `http://localhost:8000`.
