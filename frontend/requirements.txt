@@ -1,0 +1,18 @@
+# Pactlify UI is Node, not pip.
+# From this directory:
+#   npm install
+#   npm run dev
+#
+# Runtime
+#   react@^19.1.1
+#   react-dom@^19.1.1
+#   react-router-dom@^7.8.2
+#
+# Dev
+#   vite@^6.3.5
+#   @vitejs/plugin-react@^4.3.4
+#   typescript@~5.9.2
+#   @types/react@^19.1.12
+#   @types/react-dom@^19.1.9
+#
+# Canonical lockfile: package-lock.json

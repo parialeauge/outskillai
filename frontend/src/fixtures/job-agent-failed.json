@@ -1,0 +1,77 @@
+{
+  "job_id": "job_fixture",
+  "status": "completed",
+  "query": "What is the timeline and financial impact?",
+  "created_at": "2026-09-05T16:00:00Z",
+  "activated_agents": [
+    "financial",
+    "pm"
+  ],
+  "timeline": [
+    {
+      "agent": "financial",
+      "status": "done",
+      "started_at": "2026-09-05T16:00:01Z",
+      "finished_at": "2026-09-05T16:00:08Z",
+      "chunks_retrieved": 4,
+      "primary_count": 4,
+      "used_live_web": false,
+      "error": null
+    },
+    {
+      "agent": "pm",
+      "status": "failed",
+      "started_at": "2026-09-05T16:00:01Z",
+      "finished_at": "2026-09-05T16:00:08Z",
+      "chunks_retrieved": 0,
+      "primary_count": 0,
+      "used_live_web": false,
+      "error": "AGENT_TIMEOUT after 60s"
+    }
+  ],
+  "warnings": [
+    "pm: AGENT_TIMEOUT after 60s"
+  ],
+  "error": null,
+  "result": {
+    "job_id": "job_fixture",
+    "query": "What is the timeline and financial impact?",
+    "activated_agents": [
+      "financial",
+      "pm"
+    ],
+    "answer": {
+      "summary": "Budget is tight in Q1.",
+      "sections": [
+        {
+          "agent": "financial",
+          "title": "Financial",
+          "body": "East region is over budget.",
+          "key_points": [
+            "point"
+          ],
+          "citation_ids": [
+            "c1"
+          ]
+        }
+      ]
+    },
+    "citations": [
+      {
+        "id": "c1",
+        "source": "budget.csv",
+        "type": "csv",
+        "category": "financial",
+        "page": null,
+        "row_start": 1,
+        "row_end": 2,
+        "cross_category": false,
+        "quote": "region,quarter,revenue,budget\neast,Q1,10,12\nwest,Q1,20,18"
+      }
+    ],
+    "warnings": [
+      "pm: AGENT_TIMEOUT after 60s"
+    ],
+    "pdf_available": true
+  }
+}
