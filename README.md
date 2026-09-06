@@ -891,6 +891,26 @@ Open http://localhost:8000 — constellation `/`, mosaic `/app`, `/client`, and 
 | Frontend | `pactlify-frontend:0.6.0` | `:5173` → nginx `:80` | yes | talks to host `:8000` |
 | Combined | `pactlify:0.6.0` | `:8000` | yes | yes, same origin |
 
+### 7.4 Local build package (and Vercel)
+
+Build the Vite UI into `frontend/dist`. FastAPI serves it automatically when that folder exists (or when `STATIC_DIR` is set).
+
+```bash
+chmod +x scripts/build_package.sh
+./scripts/build_package.sh
+source .venv/bin/activate
+STATIC_DIR="$(pwd)/frontend/dist" \
+  python -m uvicorn apps.api.main:app --workers 1 --host 127.0.0.1 --port 8000
+```
+
+Vercel: `vercel.json` is current FastAPI config (no legacy `builds` / `routes`). `pyproject.toml` sets `tool.vercel.entrypoint` to `apps.api.main:app` and a frontend `npm run build` as the Vercel build script. From this directory, after `vercel link`:
+
+```bash
+npx vercel
+```
+
+Set at least `ADMIN_TOKEN`, `ALLOWED_INGEST_ROOT`, `OPENROUTER_API_KEY`, and (for traces) `LANGSMITH_TRACING` / `LANGSMITH_API_KEY` in the Vercel project env. The in-memory KB and MiniLM/PyTorch payload are a poor fit for a cold-start function — prefer the combined Docker image for a demo. Job timeout is 300s on the FastAPI function.
+
 ---
 
 ## Sample corpus

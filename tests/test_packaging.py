@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import tomllib
 from pathlib import Path
@@ -134,3 +135,14 @@ def test_editable_metadata_tracks_backend_package():
     assert _declared_packages() <= names
     version = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
     assert f"Version: {version}" in info.read_text()
+
+
+def test_vercel_package_uses_fastapi_entrypoint_not_legacy_builds():
+    config = json.loads((ROOT / "vercel.json").read_text())
+    assert "builds" not in config
+    assert "routes" not in config
+    assert config["functions"]["apps/api/main.py"]["maxDuration"] == 300
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    assert project["tool"]["vercel"]["entrypoint"] == "apps.api.main:app"
+    assert "npm run build" in project["tool"]["vercel"]["scripts"]["build"]
+    assert (ROOT / "scripts" / "build_package.sh").is_file()

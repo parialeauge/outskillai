@@ -18,6 +18,13 @@ from apps.api.routes import ApiContext, build_router
 __all__ = ["ApiContext", "app", "create_app"]
 
 
+def _bundled_ui() -> str | None:
+    root = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+    if (root / "index.html").is_file():
+        return str(root)
+    return None
+
+
 def _cors_origins() -> list[str]:
     raw = os.getenv("CORS_ORIGIN", "http://localhost:5173")
     origins = [item.strip() for item in raw.split(",") if item.strip()]
@@ -73,7 +80,7 @@ def create_app(context: ApiContext | None = None) -> FastAPI:
         )
 
     application.include_router(build_router(ctx))
-    _mount_ui(application, os.getenv("STATIC_DIR"))
+    _mount_ui(application, os.getenv("STATIC_DIR") or _bundled_ui())
     application.state.context = ctx
     return application
 
