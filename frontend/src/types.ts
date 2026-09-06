@@ -61,7 +61,8 @@ export interface AdminStatus {
 }
 
 export interface IngestRequest {
-  folder_path: string;
+  folder_path?: string;
+  files?: File[];
   category?: StampCategory | null;
 }
 

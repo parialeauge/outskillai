@@ -3,6 +3,8 @@ import "../theme/pastel.css";
 import CategoryCards from "../components/CategoryCards";
 import DocumentTable from "../components/DocumentTable";
 import {
+  CHOOSE_ONE_MESSAGE,
+  NEED_ONE_MESSAGE,
   getAdminDocuments,
   getAdminStatus,
   getKb,
@@ -28,6 +30,8 @@ export default function Admin() {
   const [authed, setAuthed] = useState(false);
   const [stamp, setStamp] = useState<StampCategory | null>(null);
   const [folder, setFolder] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileKey, setFileKey] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [store, setStore] = useState(getDocumentStore());
@@ -52,13 +56,25 @@ export default function Admin() {
   }
 
   async function submit(): Promise<void> {
+    const path = folder.trim();
+    if (path && files.length) {
+      setError(CHOOSE_ONE_MESSAGE);
+      return;
+    }
+    if (!path && !files.length) {
+      setError(NEED_ONE_MESSAGE);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const path = folder.trim();
-      const body = stamp ? { folder_path: path, category: stamp } : { folder_path: path };
+      const body = stamp
+        ? { folder_path: path || undefined, files, category: stamp }
+        : { folder_path: path || undefined, files };
       const result = await ingest(body);
-      replaceFromIngest(result, path);
+      replaceFromIngest(result, path || "uploaded files");
+      setFiles([]);
+      setFileKey((key) => key + 1);
       await getKb();
     } catch (caught) {
       if (isApiError(caught) && caught.status === 401) {
@@ -97,21 +113,49 @@ export default function Admin() {
   return (
     <div className="admin-body">
       <h1>Load a folder</h1>
-      <p className="desc">Server folder path first, then an optional stamp. Table is in-memory; restart needs the path again.</p>
+      <p className="desc">Use a server folder path or upload files — not both. Optional stamp. Table is in-memory; restart needs the source again.</p>
       <div className="upload-panel">
         <label>
           Folder path
           <input
             type="text"
             value={folder}
-            onChange={(event) => setFolder(event.target.value)}
+            onChange={(event) => {
+              setFolder(event.target.value);
+              if (files.length) {
+                setFiles([]);
+                setFileKey((key) => key + 1);
+              }
+            }}
             placeholder="/absolute/path/to/outskillai/sample_data"
           />
         </label>
-        <button className="btn-primary" type="button" disabled={busy || !folder.trim()} onClick={() => void submit()}>
+        <label>
+          Or upload files
+          <input
+            key={fileKey}
+            type="file"
+            multiple
+            accept=".pdf,.csv,.txt,text/plain,application/pdf,text/csv"
+            onChange={(event) => {
+              const next = Array.from(event.target.files ?? []);
+              setFiles(next);
+              if (next.length) setFolder("");
+            }}
+          />
+        </label>
+        {files.length ? (
+          <p className="note">{files.map((file) => file.name).join(", ")}</p>
+        ) : null}
+        <button
+          className="btn-primary"
+          type="button"
+          disabled={busy || (!folder.trim() && !files.length)}
+          onClick={() => void submit()}
+        >
           {busy ? "Loading…" : "Submit"}
         </button>
-        <p className="note">Auto-detect omits category. Never send uncategorized. Top-level pdf/csv/txt only.</p>
+        <p className="note">Choose one source. Auto-detect omits category. Never send uncategorized. Top-level pdf/csv/txt only.</p>
         {error ? <p className="fail-list">{error}</p> : null}
       </div>
       <CategoryCards selected={stamp} onSelect={setStamp} />

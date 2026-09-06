@@ -20,6 +20,8 @@ from backend.rag_engine import IngestRejected, ingest, list_documents, set_categ
 from backend.rag_engine.retriever import get_state
 
 KB_EMPTY_MESSAGE = "Knowledge base not loaded — ask admin."
+CHOOSE_ONE_MESSAGE = "Choose a folder path or upload files, not both."
+NEED_ONE_MESSAGE = "Provide a folder path or upload files."
 PATCH_CATEGORIES = {"financial", "pm", "capex", "policy"}
 
 
@@ -297,19 +299,36 @@ async def _ingest_target(request: Request) -> tuple[Path, str | None]:
         form = await request.form()
         raw_category = form.get("category")
         category = str(raw_category).strip() if raw_category not in (None, "") else None
+        raw_folder = form.get("folder_path")
+        folder = str(raw_folder).strip() if raw_folder not in (None, "") else ""
         uploads: list[tuple[str, bytes]] = []
         for item in form.getlist("files"):
             if not isinstance(item, UploadFile):
                 continue
+            name = (item.filename or "").strip()
             payload = await item.read()
-            uploads.append((item.filename or "", payload))
-        return stage_uploaded_files(uploads), category
+            if not name or not payload:
+                continue
+            uploads.append((name, payload))
+        if folder and uploads:
+            raise HTTPException(
+                status_code=400,
+                detail={"error": "choose_one", "message": CHOOSE_ONE_MESSAGE},
+            )
+        if uploads:
+            return stage_uploaded_files(uploads), category
+        if folder:
+            return resolve_ingest_path(folder), category
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "bad_folder", "message": NEED_ONE_MESSAGE},
+        )
     try:
         body = IngestRequest.model_validate(await request.json())
     except Exception as error:
         raise HTTPException(
             status_code=400,
-            detail={"error": "bad_folder", "message": "Provide a folder_path or upload files."},
+            detail={"error": "bad_folder", "message": NEED_ONE_MESSAGE},
         ) from error
     return resolve_ingest_path(body.folder_path), body.category
 

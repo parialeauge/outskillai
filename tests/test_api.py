@@ -190,6 +190,36 @@ def test_multipart_ingest_rejects_path_in_filename(root):
     assert response.json()["error"] == "bad_folder"
 
 
+def test_multipart_both_folder_and_files_is_400(root):
+    (root / "note.txt").write_text("timeline milestone budget revenue")
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("upload.txt", b"timeline milestone budget revenue", "text/plain"))],
+        data={"folder_path": str(root)},
+        headers=AUTH,
+    )
+    assert response.status_code == 400
+    body = response.json()
+    assert body["error"] == "choose_one"
+    assert "not both" in body["message"]
+    assert client.get("/kb").json()["loaded"] is False
+
+
+def test_multipart_folder_path_only_ingests(root):
+    (root / "note.txt").write_text("timeline milestone budget revenue")
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("", b"", "application/octet-stream"))],
+        data={"folder_path": str(root), "category": "financial"},
+        headers=AUTH,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["documents"]
+    assert client.get("/kb").json()["loaded"] is True
+
+
 def test_admin_documents_empty_kb(root):
     client = _client()
     response = client.get("/admin/documents", headers=AUTH)
