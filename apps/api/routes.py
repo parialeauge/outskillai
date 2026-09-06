@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
+from starlette.datastructures import UploadFile
 
 from apps.api.auth import require_admin
-from apps.api.paths import resolve_ingest_path
+from apps.api.paths import resolve_ingest_path, stage_uploaded_files
 from apps.api.session_registry import JobRegistry
 from backend.agent_builder.formatter import format_job
 from backend.agent_builder.graph import build_graph, run_job
@@ -153,18 +155,18 @@ def build_router(ctx: ApiContext) -> APIRouter:
 
     @router.post("/admin/ingest")
     async def admin_ingest(
-        body: IngestRequest,
+        request: Request,
         authorization: str | None = Header(default=None),
     ):
         admin(authorization)
-        if body.category == "uncategorized":
+        path, category = await _ingest_target(request)
+        if category == "uncategorized":
             raise HTTPException(
                 status_code=400,
                 detail={"error": "bad_folder", "message": 'Stamping a folder "uncategorized" is not allowed.'},
             )
-        path = resolve_ingest_path(body.folder_path)
         try:
-            result = await asyncio.to_thread(_ingest, str(path), body.category, ctx.embedder)
+            result = await asyncio.to_thread(_ingest, str(path), category, ctx.embedder)
         except IngestRejected as error:
             raise HTTPException(
                 status_code=400,
@@ -287,6 +289,29 @@ def execute_job(ctx: ApiContext, job: dict) -> None:
     job["warnings"] = envelope["warnings"]
     job["status"] = "completed"
     job["error"] = None
+
+
+async def _ingest_target(request: Request) -> tuple[Path, str | None]:
+    content_type = (request.headers.get("content-type") or "").lower()
+    if content_type.startswith("multipart/form-data"):
+        form = await request.form()
+        raw_category = form.get("category")
+        category = str(raw_category).strip() if raw_category not in (None, "") else None
+        uploads: list[tuple[str, bytes]] = []
+        for item in form.getlist("files"):
+            if not isinstance(item, UploadFile):
+                continue
+            payload = await item.read()
+            uploads.append((item.filename or "", payload))
+        return stage_uploaded_files(uploads), category
+    try:
+        body = IngestRequest.model_validate(await request.json())
+    except Exception as error:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "bad_folder", "message": "Provide a folder_path or upload files."},
+        ) from error
+    return resolve_ingest_path(body.folder_path), body.category
 
 
 def _ingest(folder_path: str, stamp: str | None, embedder):

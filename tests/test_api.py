@@ -149,6 +149,47 @@ def test_ingest_unexpected_error_returns_json_envelope(root, monkeypatch):
     assert "embedder exploded" in body["message"]
 
 
+def test_multipart_ingest_loads_kb(root):
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("note.txt", b"timeline milestone budget revenue", "text/plain"))],
+        data={"category": "financial"},
+        headers=AUTH,
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["documents"]
+    assert body["documents"][0]["source"] == "note.txt"
+    kb = client.get("/kb").json()
+    assert kb["loaded"] is True
+    assert kb["document_count"] == 1
+
+
+def test_multipart_ingest_no_files_is_400(root):
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("", b"", "application/octet-stream"))],
+        data={"category": "financial"},
+        headers=AUTH,
+    )
+    assert response.status_code == 400
+    assert response.json()["error"] == "bad_folder"
+    assert client.get("/kb").json()["loaded"] is False
+
+
+def test_multipart_ingest_rejects_path_in_filename(root):
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("../evil.txt", b"timeline milestone", "text/plain"))],
+        headers=AUTH,
+    )
+    assert response.status_code == 400
+    assert response.json()["error"] == "bad_folder"
+
+
 def test_admin_documents_empty_kb(root):
     client = _client()
     response = client.get("/admin/documents", headers=AUTH)

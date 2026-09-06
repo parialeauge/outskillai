@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: pactlify-api
+    runtime: docker
+    repo: https://github.com/parialeauge/outskillai
+    branch: outskill-hackathon
+    dockerfilePath: ./Dockerfile.backend
+    dockerCommand: uvicorn apps.api.main:app --host 0.0.0.0 --port 10000 --workers 1
+    plan: standard
+    healthCheckPath: /kb
+    envVars:
+      - key: ALLOWED_INGEST_ROOT
+        value: /app
+      - key: CORS_ORIGIN
+        value: https://outskillai.vercel.app
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: openai/gpt-4o-mini
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: NEWSAPI_API_KEY
+        sync: false
+      - key: EMBEDDING_MODEL
+        value: sentence-transformers/all-MiniLM-L6-v2
+      - key: LANGSMITH_TRACING
+        value: "false"

@@ -4,6 +4,7 @@
 #   python3 -m pip install --no-deps -e .
 
 fastapi==0.141.1
+python-multipart==0.0.20
 uvicorn[standard]==0.30.5
 numpy==1.26.4
 pandas==2.2.3
