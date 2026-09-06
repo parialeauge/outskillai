@@ -5,8 +5,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from shared.tracing import apply_langsmith_aliases
+
 _ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 load_dotenv(_ENV_FILE)
+apply_langsmith_aliases()
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

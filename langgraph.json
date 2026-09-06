@@ -2,7 +2,10 @@
   "python_version": "3.12",
   "dependencies": ["."],
   "graphs": {
-    "pactlify": "./backend/agent_builder/studio.py:graph"
+    "pactlify": {
+      "path": "./backend/agent_builder/studio.py:graph",
+      "description": "Pactlify parent router with Financial, PM, CapEx, and General specialists."
+    }
   },
-  "env": ".env"
+  "env": "./.env"
 }

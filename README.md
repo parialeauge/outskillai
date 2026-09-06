@@ -737,9 +737,12 @@ The file points at one compiled graph:
   "python_version": "3.12",
   "dependencies": ["."],
   "graphs": {
-    "pactlify": "./backend/agent_builder/studio.py:graph"
+    "pactlify": {
+      "path": "./backend/agent_builder/studio.py:graph",
+      "description": "Pactlify parent router with Financial, PM, CapEx, and General specialists."
+    }
   },
-  "env": ".env"
+  "env": "./.env"
 }
 ```
 
@@ -798,7 +801,8 @@ What is the project timeline and the financial impact of the Q1 budget?
 |---|---|
 | Tracing still `false` | Set `LANGSMITH_TRACING=true` (or `LANGCHAIN_TRACING_V2=true`) and **restart** uvicorn / `langgraph dev` |
 | `langgraph.json` missing | File must live in `outskillai/` next to `pyproject.toml`. Run `langgraph validate` |
-| `langgraph: command not found` | `python -m pip install "langgraph-cli[inmem]"` |
+| `langgraph: command not found` | Install in the project venv: `python -m pip install -r requirements-dev.txt` then `.venv/bin/langgraph validate` |
+| Graph load / `No module named 'lancedb'` | `langgraph` resolved to Anaconda, not `.venv`. Run `source .venv/bin/activate` then `which langgraph` — it must be `.venv/bin/langgraph` |
 | `Path 'langgraph.json' does not exist` | `cd` to `outskillai/` before `langgraph dev` |
 | Wrong file | Keys must be in `outskillai/.env`, not `frontend/.env` |
 | No API key | `LANGSMITH_API_KEY` or `LANGCHAIN_API_KEY` must be set |
