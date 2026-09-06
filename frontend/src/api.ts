@@ -88,7 +88,6 @@ export async function getAdminDocuments(): Promise<{ documents: DocumentInfo[] }
   return res.json() as Promise<{ documents: DocumentInfo[] }>;
 }
 
-export const CHOOSE_ONE_MESSAGE = "Choose a folder path or upload files, not both.";
 export const NEED_ONE_MESSAGE = "Provide a folder path or upload files.";
 
 export async function ingest(body: IngestRequest): Promise<IngestResult> {
@@ -99,9 +98,6 @@ export async function ingest(body: IngestRequest): Promise<IngestResult> {
       fail(401, "unauthorized", "Missing or wrong admin token.");
     }
     requireToken();
-    if (folder && files.length) {
-      fail(400, "choose_one", CHOOSE_ONE_MESSAGE);
-    }
     if (!folder && !files.length) {
       fail(400, "bad_folder", NEED_ONE_MESSAGE);
     }
@@ -115,9 +111,6 @@ export async function ingest(body: IngestRequest): Promise<IngestResult> {
     return ingestSuccess as IngestResult;
   }
   const token = getAdminToken();
-  if (folder && files.length) {
-    fail(400, "choose_one", CHOOSE_ONE_MESSAGE);
-  }
   if (files.length) {
     const form = new FormData();
     for (const file of files) {

@@ -151,14 +151,11 @@ def test_stamp_none_leaves_urls_uncategorized(tmp_path: Path):
     assert all(d.category == "uncategorized" for d in web)
 
 
-def test_stamp_uncategorized_rejects_without_swap(tmp_path: Path):
-    (tmp_path / "notes.txt").write_text("hello")
-    with pytest.raises(IngestRejected) as exc:
-        ingest(str(tmp_path), stamp="uncategorized", embedder=FakeEmbedder())
-    assert exc.value.code == "bad_folder"
-    from backend.rag_engine.retriever import list_documents
-
-    assert list_documents("shared") == []
+def test_stamp_uncategorized_is_allowed(tmp_path: Path):
+    (tmp_path / "notes.txt").write_text("hello timeline")
+    result = ingest(str(tmp_path), stamp="uncategorized", embedder=FakeEmbedder())
+    assert result.documents
+    assert all(doc.category == "uncategorized" for doc in result.documents)
 
 
 def test_subdirectory_only_rejected(tmp_path: Path):
@@ -172,13 +169,11 @@ def test_subdirectory_only_rejected(tmp_path: Path):
 def test_max_files_and_max_file_mb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     import backend.rag_engine.ingestion as ingestion
 
-    monkeypatch.setattr(ingestion, "MAX_FILES", 2)
     for i in range(3):
-        (tmp_path / f"f{i}.txt").write_text("x")
-    with pytest.raises(IngestRejected):
-        ingest(str(tmp_path), embedder=FakeEmbedder())
+        (tmp_path / f"f{i}.txt").write_text("timeline milestone")
+    many = ingest(str(tmp_path), embedder=FakeEmbedder(), classify_document_fn=lambda text: "pm")
+    assert len(many.documents) == 3
 
-    monkeypatch.setattr(ingestion, "MAX_FILES", 40)
     monkeypatch.setattr(ingestion, "MAX_FILE_MB", 1)
     folder = tmp_path / "sized"
     folder.mkdir()

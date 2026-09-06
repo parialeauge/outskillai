@@ -6,7 +6,6 @@ from pathlib import Path
 
 from shared.config import (
     MAX_FILE_MB,
-    MAX_FILES,
     MAX_URL_BYTES,
     MAX_URLS,
     URL_FETCH_CONCURRENCY,
@@ -15,7 +14,6 @@ from shared.config import (
 from backend.rag_engine.chunker import chunk_csv, chunk_pdf, chunk_txt
 from backend.rag_engine.types import Chunk, FailedFile, FailedUrl
 
-INGESTABLE_SUFFIXES = {".pdf", ".csv", ".txt"}
 URLS_NAME = "urls.txt"
 
 
@@ -47,18 +45,13 @@ def scan_folder(path: Path) -> ScanResult:
     for entry in sorted(folder.iterdir()):
         if not entry.is_file():
             continue
-        if entry.name == URLS_NAME or entry.suffix.lower() in INGESTABLE_SUFFIXES:
-            candidates.append(entry)
+        if entry.name.startswith("."):
+            continue
+        candidates.append(entry)
 
     if not candidates:
         raise IngestRejected(
-            "No top-level pdf, csv, txt, or urls.txt files to ingest. "
-            "The scan is flat — subdirectories are not scanned."
-        )
-
-    if len(candidates) > MAX_FILES:
-        raise IngestRejected(
-            f"Folder has {len(candidates)} ingestable files, over the cap of {MAX_FILES}."
+            "No top-level files to ingest. The scan is flat — subdirectories are not scanned."
         )
 
     limit = MAX_FILE_MB * 1024 * 1024
@@ -106,19 +99,19 @@ def load_txt(path: Path, document_id: str) -> tuple[list[Chunk], list[FailedFile
 def load_csv(path: Path, document_id: str) -> tuple[list[Chunk], list[FailedFile]]:
     try:
         text = _read_text(path)
-    except OSError as exc:
+        import io
+
+        import pandas as pd
+
+        frame = pd.read_csv(io.StringIO(text))
+        header = ",".join(str(column) for column in frame.columns)
+        rows: list[str] = []
+        for row in frame.itertuples(index=False, name=None):
+            cells = ["" if pd.isna(value) else str(value) for value in row]
+            rows.append(",".join(cells))
+        return chunk_csv(header, rows, document_id=document_id, source=path.name), []
+    except Exception as exc:  # noqa: BLE001 — skip unreadable files
         return [], [FailedFile(name=path.name, reason=str(exc))]
-    import io
-
-    import pandas as pd
-
-    frame = pd.read_csv(io.StringIO(text))
-    header = ",".join(str(column) for column in frame.columns)
-    rows: list[str] = []
-    for row in frame.itertuples(index=False, name=None):
-        cells = ["" if pd.isna(value) else str(value) for value in row]
-        rows.append(",".join(cells))
-    return chunk_csv(header, rows, document_id=document_id, source=path.name), []
 
 
 def load_pdf(path: Path, document_id: str) -> tuple[list[Chunk], list[FailedFile]]:

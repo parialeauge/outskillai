@@ -7,10 +7,6 @@ from urllib.parse import unquote, urlparse
 
 from fastapi import HTTPException
 
-INGESTABLE_SUFFIXES = {".pdf", ".csv", ".txt"}
-URLS_NAME = "urls.txt"
-
-
 def normalize_folder_path(folder_path: str) -> str:
     text = (folder_path or "").strip().strip("\"'")
     if text.startswith("file:"):
@@ -55,27 +51,22 @@ def resolve_ingest_path(folder_path: str, *, root: str | None = None) -> Path:
 
 
 def _safe_upload_name(filename: str) -> str:
-    raw = (filename or "").strip()
-    if not raw or raw in {".", ".."} or "/" in raw or "\\" in raw:
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "bad_folder", "message": "Upload filename must be a top-level file."},
-        )
-    name = Path(raw).name
-    if name != raw:
-        raise HTTPException(
-            status_code=400,
-            detail={"error": "bad_folder", "message": "Upload filename must be a top-level file."},
-        )
-    if name != URLS_NAME and Path(name).suffix.lower() not in INGESTABLE_SUFFIXES:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "bad_folder",
-                "message": "Only top-level pdf, csv, txt, or urls.txt files can be uploaded.",
-            },
-        )
+    name = Path((filename or "").replace("\\", "/")).name.strip()
+    if not name or name in {".", ".."}:
+        return "upload.bin"
     return name
+
+
+def _unique_upload_name(dest: Path, filename: str) -> str:
+    name = _safe_upload_name(filename)
+    if not dest.joinpath(name).exists():
+        return name
+    stem = Path(name).stem or "upload"
+    suffix = Path(name).suffix
+    index = 2
+    while dest.joinpath(f"{stem}_{index}{suffix}").exists():
+        index += 1
+    return f"{stem}_{index}{suffix}"
 
 
 def stage_uploaded_files(
@@ -88,8 +79,7 @@ def stage_uploaded_files(
             status_code=400,
             detail={
                 "error": "bad_folder",
-                "message": "No top-level pdf, csv, txt, or urls.txt files to ingest. "
-                "The scan is flat — subdirectories are not scanned.",
+                "message": "No top-level files to ingest. The scan is flat — subdirectories are not scanned.",
             },
         )
     root_value = root if root is not None else os.getenv("ALLOWED_INGEST_ROOT", "")
@@ -105,5 +95,5 @@ def stage_uploaded_files(
         ) from error
     dest = Path(tempfile.mkdtemp(prefix="pactlify_upload_", dir=str(allowed)))
     for filename, payload in files:
-        dest.joinpath(_safe_upload_name(filename)).write_bytes(payload)
+        dest.joinpath(_unique_upload_name(dest, filename)).write_bytes(payload)
     return dest

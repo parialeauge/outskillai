@@ -3,7 +3,6 @@ import "../theme/pastel.css";
 import CategoryCards from "../components/CategoryCards";
 import DocumentTable from "../components/DocumentTable";
 import {
-  CHOOSE_ONE_MESSAGE,
   NEED_ONE_MESSAGE,
   getAdminDocuments,
   getAdminStatus,
@@ -45,7 +44,8 @@ export default function Admin() {
       const { documents } = await getAdminDocuments();
       if (documents.length === 0) clearIfServerEmpty(documents);
       else hydrateFromAdmin(documents, status);
-      setFolder(status.last_folder ?? "");
+      const last = status.last_folder ?? "";
+      setFolder(last.includes("pactlify_upload_") ? "" : last);
       setAuthed(true);
       setError(null);
     } catch (caught) {
@@ -56,11 +56,7 @@ export default function Admin() {
   }
 
   async function submit(): Promise<void> {
-    const path = folder.trim();
-    if (path && files.length) {
-      setError(CHOOSE_ONE_MESSAGE);
-      return;
-    }
+    const path = files.length ? "" : folder.trim();
     if (!path && !files.length) {
       setError(NEED_ONE_MESSAGE);
       return;
@@ -113,35 +109,24 @@ export default function Admin() {
   return (
     <div className="admin-body">
       <h1>Load a folder</h1>
-      <p className="desc">Use a server folder path or upload files — not both. Optional stamp. Table is in-memory; restart needs the source again.</p>
+      <p className="desc">Upload any number of files, any type, with any category stamp. File uploads add to the knowledge base. A folder path replaces it. Table is in-memory; restart needs the source again.</p>
       <div className="upload-panel">
         <label>
           Folder path
           <input
             type="text"
             value={folder}
-            onChange={(event) => {
-              setFolder(event.target.value);
-              if (files.length) {
-                setFiles([]);
-                setFileKey((key) => key + 1);
-              }
-            }}
+            onChange={(event) => setFolder(event.target.value)}
             placeholder="/absolute/path/to/outskillai/sample_data"
           />
         </label>
         <label>
-          Or upload files
+          Upload files
           <input
             key={fileKey}
             type="file"
             multiple
-            accept=".pdf,.csv,.txt,text/plain,application/pdf,text/csv"
-            onChange={(event) => {
-              const next = Array.from(event.target.files ?? []);
-              setFiles(next);
-              if (next.length) setFolder("");
-            }}
+            onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
           />
         </label>
         {files.length ? (
@@ -155,7 +140,7 @@ export default function Admin() {
         >
           {busy ? "Loading…" : "Submit"}
         </button>
-        <p className="note">Choose one source. Auto-detect omits category. Never send uncategorized. Top-level pdf/csv/txt only.</p>
+        <p className="note">Pick as many files as you want. If files are selected they are ingested even when a folder path is also filled in.</p>
         {error ? <p className="fail-list">{error}</p> : null}
       </div>
       <CategoryCards selected={stamp} onSelect={setStamp} />

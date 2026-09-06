@@ -1,5 +1,5 @@
 export type Category = "financial" | "pm" | "capex" | "policy" | "uncategorized";
-export type StampCategory = "financial" | "pm" | "capex" | "policy"; // never "uncategorized"
+export type StampCategory = "financial" | "pm" | "capex" | "policy" | "uncategorized";
 export type DocType = "pdf" | "csv" | "txt" | "web";
 
 export type JobStatus =
