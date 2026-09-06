@@ -8,7 +8,6 @@ from backend.rag_engine.classifier import classify_chunk, classify_document
 from backend.rag_engine.embeddings import Embedder
 from backend.rag_engine.ingestion import (
     URLS_NAME,
-    IngestRejected,
     dedupe_chunks_within_document,
     load_csv,
     load_pdf,
@@ -28,6 +27,7 @@ from backend.rag_engine.types import (
 from backend.rag_engine.vectorstore import (
     TableHandle,
     build_table,
+    chunks_from_handle,
     documents_from_handle,
     search,
     sql_where,
@@ -64,15 +64,14 @@ def ingest(
     folder_path: str,
     stamp: str | None = None,
     *,
+    merge: bool = False,
     embedder=None,
     fetch=None,
     classify_document_fn=None,
     classify_chunk_fn=None,
 ) -> IngestResult:
-    if stamp == "uncategorized":
-        raise IngestRejected('Stamping a folder "uncategorized" is not allowed.')
-    if stamp is not None and stamp not in STAMPS:
-        raise IngestRejected(f"Invalid ingest stamp {stamp!r}.")
+    if stamp is not None and stamp not in STAMPS | {"uncategorized"}:
+        stamp = "uncategorized"
 
     folder = Path(folder_path)
     scan = scan_folder(folder)
@@ -85,27 +84,40 @@ def ingest(
     failed_urls: list[FailedUrl] = []
 
     for scanned in scan.files:
-        loaded, file_fails, url_fails = _load_one(scanned.path, fetch=fetch)
-        failed_files.extend(file_fails)
-        failed_urls.extend(url_fails)
-        if stamp is not None:
-            loaded = [_apply_stamp(chunk, stamp) for chunk in loaded]
-        elif scanned.path.name == URLS_NAME:
-            loaded = [_keep_uncategorized(chunk) for chunk in loaded]
-        else:
-            loaded = _classify_loaded(loaded, classify_document_fn, classify_chunk_fn)
-        chunks.extend(loaded)
+        try:
+            loaded, file_fails, url_fails = _load_one(scanned.path, fetch=fetch)
+            failed_files.extend(file_fails)
+            failed_urls.extend(url_fails)
+            if stamp is not None:
+                loaded = [_apply_stamp(chunk, stamp) for chunk in loaded]
+            elif scanned.path.name == URLS_NAME:
+                loaded = [_keep_uncategorized(chunk) for chunk in loaded]
+            else:
+                loaded = _classify_loaded(loaded, classify_document_fn, classify_chunk_fn)
+            chunks.extend(loaded)
+        except Exception as exc:  # noqa: BLE001 — keep ingest going for any format
+            failed_files.append(FailedFile(name=scanned.path.name, reason=str(exc)))
+            continue
 
     chunks = dedupe_chunks_within_document(chunks)
+    state = get_state()
+    if merge and state.handle is not None:
+        incoming = {chunk.metadata.source for chunk in chunks}
+        kept = [chunk for chunk in chunks_from_handle(state.handle) if chunk.metadata.source not in incoming]
+        chunks = kept + chunks
+        failed_files = list(state.failed_files) + failed_files
+        failed_urls = list(state.failed_urls) + failed_urls
+
     handle = None
     if chunks:
         handle = build_table(chunks, embedder)
+    elif merge and state.handle is not None:
+        handle = state.handle
 
     documents = documents_from_handle(handle) if handle is not None else []
-    state = get_state()
     state.handle = handle
     state.documents = documents
-    state.last_folder = str(folder)
+    state.last_folder = str(folder) if not merge else (state.last_folder or str(folder))
     state.failed_files = failed_files
     state.failed_urls = failed_urls
     state.chunk_count = sum(doc.chunk_count for doc in documents)
@@ -175,7 +187,7 @@ def set_category(knowledge_base_id: str, document_id: str, category: str | None)
 
 
 def _load_one(path: Path, fetch=None) -> tuple[list[Chunk], list[FailedFile], list[FailedUrl]]:
-    document_id = path.stem
+    document_id = path.name
     if path.name == URLS_NAME:
         chunks, failed_urls = load_urls_txt(path, document_id=document_id, fetch=fetch)
         remapped: list[Chunk] = []
@@ -201,12 +213,18 @@ def _load_one(path: Path, fetch=None) -> tuple[list[Chunk], list[FailedFile], li
     return chunks, failed, []
 
 
+def _coerce_category(value: str) -> Category:
+    if value in {"financial", "pm", "capex", "policy", "uncategorized"}:
+        return value  # type: ignore[return-value]
+    return "uncategorized"
+
+
 def _apply_stamp(chunk: Chunk, stamp: str) -> Chunk:
     return chunk.model_copy(
         update={
             "metadata": chunk.metadata.model_copy(
                 update={
-                    "category": stamp,
+                    "category": _coerce_category(stamp),
                     "auto_category": "uncategorized",
                     "overridden": True,
                 }
@@ -231,10 +249,16 @@ def _keep_uncategorized(chunk: Chunk) -> Chunk:
 
 def _classify_loaded(chunks: list[Chunk], classify_document_fn, classify_chunk_fn) -> list[Chunk]:
     sample = " ".join(chunk.content for chunk in chunks)[:2000]
-    auto = classify_document_fn(sample)
+    try:
+        auto = _coerce_category(str(classify_document_fn(sample) or "uncategorized"))
+    except Exception:  # noqa: BLE001 — unknown formats still land in the KB
+        auto = "uncategorized"
     tagged: list[Chunk] = []
     for chunk in chunks:
-        category = classify_chunk_fn(chunk.content, auto)
+        try:
+            category = _coerce_category(str(classify_chunk_fn(chunk.content, auto) or auto))
+        except Exception:  # noqa: BLE001
+            category = auto
         tagged.append(
             chunk.model_copy(
                 update={

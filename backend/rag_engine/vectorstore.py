@@ -115,6 +115,11 @@ def update_document_category(handle: TableHandle, document_id: str, category: st
     return int(getattr(result, "rows_updated", 0))
 
 
+def chunks_from_handle(handle: TableHandle) -> list[Chunk]:
+    frame = handle.table.to_pandas()
+    return [_from_row(row) for row in frame.to_dict(orient="records")]
+
+
 def documents_from_handle(handle: TableHandle) -> list:
     from backend.rag_engine.types import DocumentInfo
 

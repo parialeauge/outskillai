@@ -10,5 +10,5 @@ services:
       - .env
     environment:
       ALLOWED_INGEST_ROOT: /app
-      CORS_ORIGIN: http://localhost:5173,http://localhost:8000
+      CORS_ORIGIN: http://localhost:5173,http://localhost:8000,https://outskillai.vercel.app
     command: ["uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

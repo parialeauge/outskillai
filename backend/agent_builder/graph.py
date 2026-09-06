@@ -14,6 +14,7 @@ from backend.agent_builder.pm_agent import run_pm
 from backend.agent_builder.specialist import failed_payload, run_with_timeout
 from backend.agent_builder.state import AgentState
 from shared.config import AGENT_TIMEOUT, JOB_TIMEOUT
+from shared.tracing import run_config
 
 DEFAULT_AGENTS = {
     "financial": run_financial,
@@ -88,7 +89,10 @@ def run_job(
     }
     job_updater("running")
     try:
-        result = run_with_timeout(lambda: compiled.invoke(initial), job_timeout)
+        result = run_with_timeout(
+            lambda: compiled.invoke(initial, config=run_config(source="fastapi")),
+            job_timeout,
+        )
     except TimeoutError:
         result = _result_from_progress(initial, progress)
     result.pop("progress", None)

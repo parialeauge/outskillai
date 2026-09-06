@@ -4,7 +4,7 @@ import pytest
 from fastapi import HTTPException
 
 from apps.api.auth import require_admin
-from apps.api.paths import resolve_ingest_path
+from apps.api.paths import resolve_ingest_path, stage_uploaded_files
 
 
 def test_missing_or_wrong_bearer_is_unauthorized(monkeypatch):
@@ -65,3 +65,46 @@ def test_missing_folder_is_bad_folder(tmp_path, monkeypatch):
         resolve_ingest_path(str(allowed / "missing"))
     assert exc.value.status_code == 400
     assert exc.value.detail["error"] == "bad_folder"
+
+
+def test_stage_uploaded_files_writes_under_root(tmp_path, monkeypatch):
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    monkeypatch.setenv("ALLOWED_INGEST_ROOT", str(allowed))
+    dest = stage_uploaded_files([("note.txt", b"timeline milestone")])
+    assert dest.is_dir()
+    assert dest.parent == allowed.resolve()
+    assert (dest / "note.txt").read_bytes() == b"timeline milestone"
+
+
+def test_stage_uploaded_files_accepts_any_extension(tmp_path, monkeypatch):
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    monkeypatch.setenv("ALLOWED_INGEST_ROOT", str(allowed))
+    dest = stage_uploaded_files(
+        [
+            ("brief.md", b"# timeline"),
+            ("data.json", b'{"budget": 1}'),
+            ("LICENSE", b"permission notice"),
+        ]
+    )
+    assert (dest / "brief.md").read_bytes() == b"# timeline"
+    assert (dest / "data.json").read_bytes() == b'{"budget": 1}'
+    assert (dest / "LICENSE").read_bytes() == b"permission notice"
+
+
+def test_stage_uploaded_files_uses_basename_for_nested_name(tmp_path, monkeypatch):
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    monkeypatch.setenv("ALLOWED_INGEST_ROOT", str(allowed))
+    dest = stage_uploaded_files([("../evil.txt", b"nope")])
+    assert (dest / "evil.txt").read_bytes() == b"nope"
+
+
+def test_stage_uploaded_files_keeps_duplicate_names(tmp_path, monkeypatch):
+    allowed = tmp_path / "allowed"
+    allowed.mkdir()
+    monkeypatch.setenv("ALLOWED_INGEST_ROOT", str(allowed))
+    dest = stage_uploaded_files([("note.txt", b"first"), ("note.txt", b"second")])
+    assert (dest / "note.txt").read_bytes() == b"first"
+    assert (dest / "note_2.txt").read_bytes() == b"second"

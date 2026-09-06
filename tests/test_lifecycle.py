@@ -5,12 +5,14 @@ import pytest
 from backend.rag_engine.ingestion import IngestRejected
 from backend.rag_engine.retriever import (
     clear,
+    get_state,
     ingest,
     list_documents,
     reset_state,
     retrieve,
     set_category,
 )
+from backend.rag_engine.vectorstore import chunks_from_handle
 from tests.fake_embedder import FakeEmbedder
 
 
@@ -19,6 +21,52 @@ def _clean_kb():
     reset_state()
     yield
     reset_state()
+
+
+def test_merge_ingest_keeps_previous_document(tmp_path: Path):
+    folder_a = tmp_path / "a"
+    folder_b = tmp_path / "b"
+    folder_a.mkdir()
+    folder_b.mkdir()
+    (folder_a / "alpha.txt").write_text("alpha timeline milestone unique-a")
+    (folder_b / "beta.txt").write_text("beta revenue budget unique-b")
+    ingest(str(folder_a), embedder=FakeEmbedder(), classify_document_fn=lambda text: "pm")
+    result = ingest(
+        str(folder_b),
+        embedder=FakeEmbedder(),
+        classify_document_fn=lambda text: "financial",
+        merge=True,
+    )
+    sources = {doc.source for doc in result.documents}
+    assert sources == {"alpha.txt", "beta.txt"}
+    assert result.chunk_count >= 2
+    both = retrieve("shared", "unique-a unique-b")
+    texts = " ".join(chunk.content for chunk in both.chunks)
+    assert "unique-a" in texts
+    assert "unique-b" in texts
+
+
+def test_merge_same_source_replaces_that_document_only(tmp_path: Path):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    (first / "note.txt").write_text("old timeline unique-old")
+    (first / "keep.txt").write_text("keep timeline unique-keep")
+    (second / "note.txt").write_text("new revenue unique-new")
+    ingest(str(first), embedder=FakeEmbedder(), classify_document_fn=lambda text: "pm")
+    result = ingest(
+        str(second),
+        embedder=FakeEmbedder(),
+        classify_document_fn=lambda text: "financial",
+        merge=True,
+    )
+    sources = {doc.source for doc in result.documents}
+    assert sources == {"note.txt", "keep.txt"}
+    joined = " ".join(chunk.content for chunk in chunks_from_handle(get_state().handle))
+    assert "unique-new" in joined
+    assert "unique-keep" in joined
+    assert "unique-old" not in joined
 
 
 def test_reload_same_folder_does_not_double_chunks(tmp_path: Path):
@@ -47,8 +95,6 @@ def test_retrieve_uses_captured_handle_after_swap(tmp_path: Path):
     (folder_a / "a.txt").write_text("alpha timeline milestone unique-a")
     (folder_b / "b.txt").write_text("beta revenue budget unique-b")
     ingest(str(folder_a), embedder=FakeEmbedder(), classify_document_fn=lambda text: "pm")
-    from backend.rag_engine.retriever import get_state
-
     handle_a = get_state().handle
     ingest(str(folder_b), embedder=FakeEmbedder(), classify_document_fn=lambda text: "financial")
     old = retrieve("shared", "unique-a", category="pm", handle=handle_a)

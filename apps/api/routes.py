@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
+from starlette.datastructures import UploadFile
 
 from apps.api.auth import require_admin
-from apps.api.paths import resolve_ingest_path
+from apps.api.paths import resolve_ingest_path, stage_uploaded_files
 from apps.api.session_registry import JobRegistry
 from backend.agent_builder.formatter import format_job
 from backend.agent_builder.graph import build_graph, run_job
@@ -18,7 +20,8 @@ from backend.rag_engine import IngestRejected, ingest, list_documents, set_categ
 from backend.rag_engine.retriever import get_state
 
 KB_EMPTY_MESSAGE = "Knowledge base not loaded — ask admin."
-PATCH_CATEGORIES = {"financial", "pm", "capex", "policy"}
+NEED_ONE_MESSAGE = "Provide a folder path or upload files."
+PATCH_CATEGORIES = {"financial", "pm", "capex", "policy", "uncategorized"}
 
 
 @dataclass
@@ -153,18 +156,13 @@ def build_router(ctx: ApiContext) -> APIRouter:
 
     @router.post("/admin/ingest")
     async def admin_ingest(
-        body: IngestRequest,
+        request: Request,
         authorization: str | None = Header(default=None),
     ):
         admin(authorization)
-        if body.category == "uncategorized":
-            raise HTTPException(
-                status_code=400,
-                detail={"error": "bad_folder", "message": 'Stamping a folder "uncategorized" is not allowed.'},
-            )
-        path = resolve_ingest_path(body.folder_path)
+        path, category, merge = await _ingest_target(request)
         try:
-            result = await asyncio.to_thread(_ingest, str(path), body.category, ctx.embedder)
+            result = await asyncio.to_thread(_ingest, str(path), category, ctx.embedder, merge)
         except IngestRejected as error:
             raise HTTPException(
                 status_code=400,
@@ -289,8 +287,43 @@ def execute_job(ctx: ApiContext, job: dict) -> None:
     job["error"] = None
 
 
-def _ingest(folder_path: str, stamp: str | None, embedder):
-    kwargs: dict[str, Any] = {}
+async def _ingest_target(request: Request) -> tuple[Path, str | None, bool]:
+    content_type = (request.headers.get("content-type") or "").lower()
+    if content_type.startswith("multipart/form-data"):
+        form = await request.form(max_files=10_000, max_fields=10_000)
+        raw_category = form.get("category")
+        category = str(raw_category).strip() if raw_category not in (None, "") else None
+        raw_folder = form.get("folder_path")
+        folder = str(raw_folder).strip() if raw_folder not in (None, "") else ""
+        uploads: list[tuple[str, bytes]] = []
+        for item in form.getlist("files"):
+            if not isinstance(item, UploadFile):
+                continue
+            name = (item.filename or "").strip()
+            payload = await item.read()
+            if not name or not payload:
+                continue
+            uploads.append((name, payload))
+        if uploads:
+            return stage_uploaded_files(uploads), category, True
+        if folder:
+            return resolve_ingest_path(folder), category, False
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "bad_folder", "message": NEED_ONE_MESSAGE},
+        )
+    try:
+        body = IngestRequest.model_validate(await request.json())
+    except Exception as error:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "bad_folder", "message": NEED_ONE_MESSAGE},
+        ) from error
+    return resolve_ingest_path(body.folder_path), body.category, False
+
+
+def _ingest(folder_path: str, stamp: str | None, embedder, merge: bool = False):
+    kwargs: dict[str, Any] = {"merge": merge}
     if embedder is not None:
         kwargs["embedder"] = embedder
     return ingest(folder_path, stamp=stamp, **kwargs)

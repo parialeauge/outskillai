@@ -737,9 +737,12 @@ The file points at one compiled graph:
   "python_version": "3.12",
   "dependencies": ["."],
   "graphs": {
-    "pactlify": "./backend/agent_builder/studio.py:graph"
+    "pactlify": {
+      "path": "./backend/agent_builder/studio.py:graph",
+      "description": "Pactlify parent router with Financial, PM, CapEx, and General specialists."
+    }
   },
-  "env": ".env"
+  "env": "./.env"
 }
 ```
 
@@ -798,7 +801,8 @@ What is the project timeline and the financial impact of the Q1 budget?
 |---|---|
 | Tracing still `false` | Set `LANGSMITH_TRACING=true` (or `LANGCHAIN_TRACING_V2=true`) and **restart** uvicorn / `langgraph dev` |
 | `langgraph.json` missing | File must live in `outskillai/` next to `pyproject.toml`. Run `langgraph validate` |
-| `langgraph: command not found` | `python -m pip install "langgraph-cli[inmem]"` |
+| `langgraph: command not found` | Install in the project venv: `python -m pip install -r requirements-dev.txt` then `.venv/bin/langgraph validate` |
+| Graph load / `No module named 'lancedb'` | `langgraph` resolved to Anaconda, not `.venv`. Run `source .venv/bin/activate` then `which langgraph` — it must be `.venv/bin/langgraph` |
 | `Path 'langgraph.json' does not exist` | `cd` to `outskillai/` before `langgraph dev` |
 | Wrong file | Keys must be in `outskillai/.env`, not `frontend/.env` |
 | No API key | `LANGSMITH_API_KEY` or `LANGCHAIN_API_KEY` must be set |
@@ -982,3 +986,279 @@ Backend `.env` (from `.env.example`):
 | `EMBEDDING_MODEL` | no | Default `sentence-transformers/all-MiniLM-L6-v2` |
 
 Frontend `.env`: only `VITE_API_BASE_URL` (and optional `VITE_USE_FIXTURES`). On Vercel, set `VITE_API_BASE_URL` to the public Docker API — not `http://localhost:8000`.
+
+---
+
+## 8. Multi-cloud provider deployment
+
+This section is only the **split public demo**: Vite UI on one cloud, FastAPI Docker on another. Local two-process setup, local Docker, and the combined image stay in [§7](#7-packaging). Do not put the Python/PyTorch API on Vercel.
+
+```mermaid
+flowchart LR
+  Browser["Browser"] --> VercelUI["Vercel<br/>Vite static UI"]
+  VercelUI -->|"HTTPS + CORS"| ApiHost["Render or Railway<br/>Dockerfile.backend"]
+  ApiHost --> KB[("LanceDB temp<br/>in process")]
+```
+
+| Role | Provider | Config in this folder | What it runs |
+|---|---|---|---|
+| UI | **Vercel** | `vercel.json`, `.vercelignore` | Vite build of `frontend/` → `frontend/dist` |
+| API | **Render** | `render.yaml`, `Dockerfile.backend` | `uvicorn apps.api.main:app` in Docker, one worker |
+| API (alt) | **Railway** | `railway.toml`, `Dockerfile.backend` | Same backend image if you prefer Railway over Render |
+
+Live wiring used for the public demo:
+
+| Surface | URL |
+|---|---|
+| UI | https://outskillai.vercel.app |
+| API | https://pactlify-api.onrender.com |
+
+`GET /kb` on the API should return JSON (`loaded`, `document_count`). First hit on a free Render service can be slow after idle spin-down.
+
+Run every command below from this directory (`outskillai/`), not the parent workspace.
+
+### 8.1 End-to-end order
+
+Do these in this order so CORS and the baked Vite URL match:
+
+1. Push the API image source to GitHub (`outskill-hackathon`).
+2. Deploy the backend on Render (or Railway). Copy the public HTTPS API URL.
+3. Point the frontend at that API ([§8.2](#82-point-the-frontend-at-the-backend)).
+4. Set `CORS_ORIGIN` on the API to the Vercel origin.
+5. Deploy the Vite UI on Vercel.
+6. If the Vercel URL is new, add it to `CORS_ORIGIN` and restart the API.
+7. Verify with the commands in [§8.6](#86-verify).
+
+### 8.2 Point the frontend at the backend
+
+The React client reads one origin:
+
+```ts
+const BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+```
+
+Vite **inlines** `VITE_API_BASE_URL` at **build** time. Changing the API host later requires a new frontend build (local `npm run dev` / `npm run build`, or a new Vercel deploy). A page on Vercel cannot call `http://localhost:8000`. No trailing slash.
+
+| Where the UI runs | File or setting | Value |
+|---|---|---|
+| Local Vite (`npm run dev`) | `frontend/.env` (not uploaded; listed in `.vercelignore`) | `VITE_API_BASE_URL=http://localhost:8000` |
+| Local Vite against the **public** API | `frontend/.env` | `VITE_API_BASE_URL=https://pactlify-api.onrender.com` |
+| Vercel production / preview | Vercel project env (Production **and** Preview) | `VITE_API_BASE_URL=https://pactlify-api.onrender.com` |
+
+Do **not** set `ADMIN_TOKEN`, `ALLOWED_INGEST_ROOT`, or OpenRouter / Tavily / NewsAPI / LangSmith keys on Vercel. Those belong on the API host only.
+
+**Local file** — edit `frontend/.env` (or copy `frontend/.env.example`):
+
+```bash
+# Talk to the API on this machine
+printf '%s\n' 'VITE_API_BASE_URL=http://localhost:8000' > frontend/.env
+
+# Or talk to the deployed API from local Vite
+printf '%s\n' 'VITE_API_BASE_URL=https://pactlify-api.onrender.com' > frontend/.env
+```
+
+Restart Vite after any change (`cd frontend && npm run dev`). Confirm the baked value:
+
+```bash
+cd frontend && npm run dev
+# In the browser console on the Vite origin:
+# import.meta.env.VITE_API_BASE_URL
+```
+
+**Vercel project env** — dashboard or CLI. Replace the URL if you use Railway instead of Render.
+
+Dashboard: Vercel → project `outskillai` → Settings → Environment Variables → add `VITE_API_BASE_URL` = `https://pactlify-api.onrender.com` for Production and Preview → Redeploy.
+
+CLI (from `outskillai/`):
+
+```bash
+npx vercel login
+npx vercel link --yes --project outskillai --scope parialeague
+npx vercel env ls --scope parialeague
+
+# Add or replace (CLI prompts for the value if you omit --value)
+npx vercel env add VITE_API_BASE_URL production --scope parialeague
+# paste: https://pactlify-api.onrender.com
+
+npx vercel env add VITE_API_BASE_URL preview --scope parialeague
+# paste the same URL
+
+# After the env change, rebuild so Vite inlines the new origin
+npx vercel deploy --prod --yes --scope parialeague
+```
+
+To switch the live UI to a different API host later: update the Vercel env, then `npx vercel deploy --prod --yes --scope parialeague` again. Also update `CORS_ORIGIN` on that API to `https://outskillai.vercel.app` (comma-separate `http://localhost:5173` if local Vite should call the same API).
+
+### 8.3 Deploy the API on Render
+
+`render.yaml` declares web service `pactlify-api`:
+
+- Runtime: Docker
+- Repo / branch: `https://github.com/parialeauge/outskillai` @ `outskill-hackathon`
+- Dockerfile: `./Dockerfile.backend` (not `./Dockerfile`)
+- Health check: `GET /kb`
+- Docker start command (binds Render’s port):
+
+```text
+uvicorn apps.api.main:app --host 0.0.0.0 --port 10000 --workers 1
+```
+
+Blueprint `render.yaml` lists `plan: standard`. A **free** instance also works; it sleeps when idle. First image build downloads MiniLM / PyTorch and takes several minutes.
+
+In Admin against this API, the sample folder is **`/app/sample_data`**. A laptop path will fail. The in-memory KB is empty after every restart or spin-down — ingest again.
+
+**Step 1 — push the branch Render builds**
+
+```bash
+git status
+git add Dockerfile.backend render.yaml railway.toml
+git commit -m "Add multi-cloud API host config."
+git push -u origin outskill-hackathon
+```
+
+**Step 2 — dashboard (one-time create)**
+
+1. [Render Dashboard](https://dashboard.render.com) → New → Web Service → connect `parialeauge/outskillai`.
+2. Branch: `outskill-hackathon`.
+3. Runtime: **Docker**. Dockerfile path: `./Dockerfile.backend`.
+4. Docker Command:
+
+```text
+uvicorn apps.api.main:app --host 0.0.0.0 --port 10000 --workers 1
+```
+
+5. Health Check Path: `/kb`. Instance: **Free** if you have no billing, otherwise Standard as in `render.yaml`.
+6. Environment (Environment → Add Environment Variable):
+
+| Variable | Value / note |
+|---|---|
+| `ALLOWED_INGEST_ROOT` | `/app` |
+| `CORS_ORIGIN` | `https://outskillai.vercel.app` (add `,http://localhost:5173` if local Vite should call this API) |
+| `ADMIN_TOKEN` | Same token typed on the Admin screen |
+| `OPENROUTER_API_KEY` | Required for real answers |
+| `OPENROUTER_MODEL` | `openai/gpt-4o-mini` unless you change it |
+| `TAVILY_API_KEY` / `NEWSAPI_API_KEY` | Optional live web |
+| `EMBEDDING_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` |
+| `LANGSMITH_TRACING` | `false` unless you want traces |
+| `LANGSMITH_API_KEY` / `LANGSMITH_PROJECT` | Only if tracing is on |
+
+7. Create Web Service and wait until the deploy is **Live**. Copy the URL (`https://pactlify-api.onrender.com`).
+
+**Step 3 — CLI (login, list, redeploy)**
+
+```bash
+brew install render
+render login
+render whoami
+render workspaces
+render services
+render deploys list pactlify-api
+```
+
+`render services update --start-command` applies to native runtimes only, not Docker. Change the Docker Command in the dashboard (or patch `serviceDetails.envSpecificDetails.dockerCommand` via the Render API). After a Git push to `outskill-hackathon`, Render rebuilds on its own.
+
+Confirm the API (allow a cold start on the free plan):
+
+```bash
+curl -sS https://pactlify-api.onrender.com/kb
+# {"loaded":false,"document_count":0}
+```
+
+### 8.4 Deploy the UI on Vercel
+
+Deploy from this directory (`outskillai/`). `.vercelignore` keeps `apps/`, `backend/`, Docker files, and Python deps out of the upload. SPA routes (`/admin`, `/client`, `/app`) rewrite to `index.html`.
+
+Project settings that must match `vercel.json`:
+
+1. Framework Preset: **Vite** (not Python / FastAPI).
+2. Install: `npm ci --prefix frontend`
+3. Build: `npm run build --prefix frontend`
+4. Output: `frontend/dist`
+5. Root Directory: this folder (`outskillai/`).
+6. Git deploys from `main` are disabled (`git.deploymentEnabled.main: false`) so an empty `main` cannot wipe production. Deploy from `outskill-hackathon` or the CLI.
+
+**Step 1 — login and link**
+
+```bash
+npx vercel login
+npx vercel whoami
+npx vercel link --yes --project outskillai --scope parialeague
+npx vercel project update outskillai --framework vite --scope parialeague --yes
+```
+
+**Step 2 — set the backend URL, then deploy**
+
+```bash
+npx vercel env ls --scope parialeague
+npx vercel env add VITE_API_BASE_URL production --scope parialeague
+# paste: https://pactlify-api.onrender.com
+npx vercel env add VITE_API_BASE_URL preview --scope parialeague
+# paste the same URL
+
+npx vercel deploy --prod --yes --scope parialeague
+```
+
+Preview deploy (no production alias):
+
+```bash
+npx vercel deploy --yes --scope parialeague
+```
+
+Inspect and open:
+
+```bash
+npx vercel inspect outskillai.vercel.app --scope parialeague
+npx vercel ls --scope parialeague
+```
+
+If the Framework Preset is still Python from an earlier deploy, set Vite and redeploy (`npx vercel project update outskillai --framework vite --scope parialeague --yes`).
+
+### 8.5 Railway — backend Docker (optional)
+
+Use this **instead of** Render, not in addition, unless you want two APIs. `railway.toml` builds `Dockerfile.backend` and health-checks `/kb`. Railway injects `PORT`. The image CMD already uses `${PORT:-8000}`:
+
+```text
+uvicorn apps.api.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1
+```
+
+```bash
+npx --yes @railway/cli login
+npx --yes @railway/cli init
+npx --yes @railway/cli link
+
+npx --yes @railway/cli variables set ALLOWED_INGEST_ROOT=/app
+npx --yes @railway/cli variables set CORS_ORIGIN=https://outskillai.vercel.app
+npx --yes @railway/cli variables set ADMIN_TOKEN=changeme
+npx --yes @railway/cli variables set OPENROUTER_API_KEY=your_openrouter_key
+npx --yes @railway/cli variables set OPENROUTER_MODEL=openai/gpt-4o-mini
+npx --yes @railway/cli variables set EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+npx --yes @railway/cli variables set LANGSMITH_TRACING=false
+
+npx --yes @railway/cli up
+npx --yes @railway/cli domain
+npx --yes @railway/cli status
+```
+
+Copy the Railway HTTPS URL. Then in [§8.2](#82-point-the-frontend-at-the-backend) set Vercel `VITE_API_BASE_URL` to that origin (no trailing slash) and redeploy the UI. Keep `CORS_ORIGIN` on Railway equal to the Vercel origin.
+
+### 8.6 Verify
+
+```bash
+# API health (Render example)
+curl -sS https://pactlify-api.onrender.com/kb
+
+# CORS allows the Vercel origin
+curl -sS -D - -o /dev/null \
+  -H "Origin: https://outskillai.vercel.app" \
+  -H "Access-Control-Request-Method: GET" \
+  -X OPTIONS https://pactlify-api.onrender.com/kb
+
+# UI is up
+curl -sS -o /dev/null -w "%{http_code}\n" https://outskillai.vercel.app
+
+# Production JS bundle must contain the public API host, not localhost:8000
+JS=$(curl -sS https://outskillai.vercel.app/ | grep -oE '/assets/index-[^"]+\.js' | head -1)
+curl -sS "https://outskillai.vercel.app$JS" | grep -oE 'pactlify-api.onrender.com|localhost:8000' | sort | uniq
+```
+
+In the browser: open https://outskillai.vercel.app/admin → token → folder **`/app/sample_data`**. Then https://outskillai.vercel.app/client and ask a question. If the UI calls `localhost:8000`, `VITE_API_BASE_URL` was missing at the last Vercel **build** — set it and deploy again. If the browser shows a CORS error, add the exact Vercel origin to `CORS_ORIGIN` on the API and restart that service.

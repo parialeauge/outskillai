@@ -41,7 +41,8 @@
 }
 
 .upload-panel input[type="text"],
-.upload-panel input[type="password"] {
+.upload-panel input[type="password"],
+.upload-panel input[type="file"] {
   width: 100%;
   padding: 0.45rem 0.6rem;
   border-radius: 8px;

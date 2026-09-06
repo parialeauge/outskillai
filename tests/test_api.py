@@ -149,6 +149,154 @@ def test_ingest_unexpected_error_returns_json_envelope(root, monkeypatch):
     assert "embedder exploded" in body["message"]
 
 
+def test_multipart_classifier_error_is_not_500(root, monkeypatch):
+    def boom(*_args, **_kwargs):
+        raise RuntimeError("classifier down")
+
+    monkeypatch.setattr("backend.rag_engine.retriever.classify_document", boom)
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("note.txt", b"timeline milestone", "text/plain"))],
+        headers=AUTH,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["documents"]
+
+
+def test_multipart_stamp_uncategorized_is_allowed(root):
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("note.txt", b"timeline milestone", "text/plain"))],
+        data={"category": "uncategorized"},
+        headers=AUTH,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["documents"][0]["category"] == "uncategorized"
+
+
+def test_multipart_bad_csv_is_failed_file_not_500(root):
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("broken.csv", b"not,a\x00csv", "text/csv"))],
+        headers=AUTH,
+    )
+    assert response.status_code == 200, response.text
+
+
+def test_multipart_ingest_accepts_any_format_and_many_files(root):
+    client = _client()
+    files = [
+        ("files", ("brief.md", b"# timeline milestone unique-md", "text/markdown")),
+        ("files", ("data.json", b'{"budget": 10, "revenue": 20}', "application/json")),
+        ("files", ("notes.log", b"risk schedule unique-log", "text/plain")),
+        ("files", ("LICENSE", b"permission grant unique-license", "text/plain")),
+    ]
+    for index in range(5, 9):
+        files.append(("files", (f"extra{index}.rst", f"extra {index} timeline unique-{index}".encode(), "text/plain")))
+    response = client.post("/admin/ingest", files=files, headers=AUTH)
+    assert response.status_code == 200, response.text
+    sources = {doc["source"] for doc in response.json()["documents"]}
+    assert "brief.md" in sources
+    assert "data.json" in sources
+    assert "notes.log" in sources
+    assert "LICENSE" in sources
+    assert "extra5.rst" in sources
+    assert client.get("/kb").json()["document_count"] == 8
+
+
+def test_multipart_ingest_loads_kb(root):
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("note.txt", b"timeline milestone budget revenue", "text/plain"))],
+        data={"category": "financial"},
+        headers=AUTH,
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["documents"]
+    assert body["documents"][0]["source"] == "note.txt"
+    kb = client.get("/kb").json()
+    assert kb["loaded"] is True
+    assert kb["document_count"] == 1
+
+
+def test_multipart_second_upload_keeps_first_document(root):
+    client = _client()
+    first = client.post(
+        "/admin/ingest",
+        files=[("files", ("alpha.txt", b"alpha timeline milestone unique-a", "text/plain"))],
+        headers=AUTH,
+    )
+    assert first.status_code == 200, first.text
+    second = client.post(
+        "/admin/ingest",
+        files=[("files", ("beta.txt", b"beta revenue budget unique-b", "text/plain"))],
+        headers=AUTH,
+    )
+    assert second.status_code == 200, second.text
+    sources = {doc["source"] for doc in second.json()["documents"]}
+    assert sources == {"alpha.txt", "beta.txt"}
+    assert client.get("/kb").json()["document_count"] == 2
+    listed = {doc["source"] for doc in client.get("/admin/documents", headers=AUTH).json()["documents"]}
+    assert listed == {"alpha.txt", "beta.txt"}
+
+
+def test_multipart_ingest_no_files_is_400(root):
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("", b"", "application/octet-stream"))],
+        data={"category": "financial"},
+        headers=AUTH,
+    )
+    assert response.status_code == 400
+    assert response.json()["error"] == "bad_folder"
+    assert client.get("/kb").json()["loaded"] is False
+
+
+def test_multipart_ingest_strips_path_in_filename(root):
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("../evil.txt", b"timeline milestone", "text/plain"))],
+        headers=AUTH,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["documents"][0]["source"] == "evil.txt"
+
+
+def test_multipart_both_folder_and_files_uses_files(root):
+    (root / "note.txt").write_text("timeline milestone budget revenue")
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("upload.txt", b"timeline milestone budget revenue unique-upload", "text/plain"))],
+        data={"folder_path": str(root)},
+        headers=AUTH,
+    )
+    assert response.status_code == 200, response.text
+    sources = {doc["source"] for doc in response.json()["documents"]}
+    assert sources == {"upload.txt"}
+
+
+def test_multipart_folder_path_only_ingests(root):
+    (root / "note.txt").write_text("timeline milestone budget revenue")
+    client = _client()
+    response = client.post(
+        "/admin/ingest",
+        files=[("files", ("", b"", "application/octet-stream"))],
+        data={"folder_path": str(root), "category": "financial"},
+        headers=AUTH,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["documents"]
+    assert client.get("/kb").json()["loaded"] is True
+
+
 def test_admin_documents_empty_kb(root):
     client = _client()
     response = client.get("/admin/documents", headers=AUTH)

@@ -36,16 +36,13 @@ def test_subdirectory_only_folder_is_bad_folder_and_mentions_flat(tmp_path: Path
     assert "flat" in str(exc.value).lower()
 
 
-def test_over_max_files_raises_before_parsing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    import backend.rag_engine.ingestion as ingestion
-
-    monkeypatch.setattr(ingestion, "MAX_FILES", 2)
+def test_over_max_files_still_scans_every_top_level_file(tmp_path: Path):
     for i in range(3):
         (tmp_path / f"f{i}.txt").write_text("x")
-    with pytest.raises(IngestRejected) as exc:
-        scan_folder(tmp_path)
-    assert exc.value.code == "bad_folder"
-    assert "3" in str(exc.value)
+    (tmp_path / "notes.md").write_text("# timeline milestone")
+    result = scan_folder(tmp_path)
+    names = {item.path.name for item in result.files}
+    assert names == {"f0.txt", "f1.txt", "f2.txt", "notes.md"}
 
 
 def test_oversized_file_is_skipped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

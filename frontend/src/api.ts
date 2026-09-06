@@ -88,23 +88,45 @@ export async function getAdminDocuments(): Promise<{ documents: DocumentInfo[] }
   return res.json() as Promise<{ documents: DocumentInfo[] }>;
 }
 
+export const NEED_ONE_MESSAGE = "Provide a folder path or upload files.";
+
 export async function ingest(body: IngestRequest): Promise<IngestResult> {
+  const folder = (body.folder_path ?? "").trim();
+  const files = body.files ?? [];
   if (USE_FIXTURES) {
-    if (body.folder_path === "__unauth__") {
+    if (folder === "__unauth__") {
       fail(401, "unauthorized", "Missing or wrong admin token.");
     }
     requireToken();
-    if (body.folder_path === "__empty__") {
+    if (!folder && !files.length) {
+      fail(400, "bad_folder", NEED_ONE_MESSAGE);
+    }
+    if (folder === "__empty__") {
       fail(400, "bad_folder", "Folder is empty or missing — scan is top-level files only.");
     }
-    if (body.folder_path === "__forbidden__") {
+    if (folder === "__forbidden__") {
       fail(403, "forbidden_path", "Path is outside ALLOWED_INGEST_ROOT.");
     }
     kbIsLoaded = true;
     return ingestSuccess as IngestResult;
   }
   const token = getAdminToken();
-  const payload: Record<string, unknown> = { folder_path: body.folder_path };
+  if (files.length) {
+    const form = new FormData();
+    for (const file of files) {
+      form.append("files", file, file.name);
+    }
+    if (body.category) form.append("category", body.category);
+    const res = await fetch(`${BASE}/admin/ingest`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+      signal: AbortSignal.timeout(300_000),
+    });
+    if (!res.ok) await parseError(res);
+    return res.json() as Promise<IngestResult>;
+  }
+  const payload: Record<string, unknown> = { folder_path: folder };
   if (body.category) payload.category = body.category;
   const res = await fetch(`${BASE}/admin/ingest`, {
     method: "POST",
