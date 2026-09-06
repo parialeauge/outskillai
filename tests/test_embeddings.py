@@ -1,5 +1,5 @@
 from tests.fake_embedder import FakeEmbedder
-from packages.rag_engine.embeddings import Embedder
+from backend.rag_engine.embeddings import Embedder
 
 
 def _dot(a: list[float], b: list[float]) -> float:

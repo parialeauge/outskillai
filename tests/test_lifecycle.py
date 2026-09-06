@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from packages.rag_engine.ingestion import IngestRejected
-from packages.rag_engine.retriever import (
+from backend.rag_engine.ingestion import IngestRejected
+from backend.rag_engine.retriever import (
     clear,
     ingest,
     list_documents,
@@ -47,7 +47,7 @@ def test_retrieve_uses_captured_handle_after_swap(tmp_path: Path):
     (folder_a / "a.txt").write_text("alpha timeline milestone unique-a")
     (folder_b / "b.txt").write_text("beta revenue budget unique-b")
     ingest(str(folder_a), embedder=FakeEmbedder(), classify_document_fn=lambda text: "pm")
-    from packages.rag_engine.retriever import get_state
+    from backend.rag_engine.retriever import get_state
 
     handle_a = get_state().handle
     ingest(str(folder_b), embedder=FakeEmbedder(), classify_document_fn=lambda text: "financial")

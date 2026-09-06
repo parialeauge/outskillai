@@ -3,9 +3,9 @@ from fastapi.testclient import TestClient
 
 from apps.api.main import ApiContext, create_app
 from apps.api.routes import execute_job
-from packages.agent_builder.formatter import format_job
-from packages.rag_engine.retriever import get_state, reset_state
-from packages.rag_engine.types import Chunk, ChunkMetadata
+from backend.agent_builder.formatter import format_job
+from backend.rag_engine.retriever import get_state, reset_state
+from backend.rag_engine.types import Chunk, ChunkMetadata
 from tests.fake_embedder import FakeEmbedder
 
 AUTH = {"Authorization": "Bearer secret"}

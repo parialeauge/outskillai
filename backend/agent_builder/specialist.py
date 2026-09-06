@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 from shared.config import LLM_TIMEOUT
 from shared.schemas import SPECIALIST_FORMAT
-from packages.rag_engine.types import Chunk, ChunkMetadata
+from backend.rag_engine.types import Chunk, ChunkMetadata
 
 TITLES = {
     "financial": "Financial",
@@ -83,10 +83,10 @@ def _run_body(
         from shared.llm import chat_sync as llm  # type: ignore[assignment]
     retriever = retrieve_fn
     if retriever is None:
-        from packages.rag_engine import retrieve as retriever
+        from backend.rag_engine import retrieve as retriever
     searcher = web_search
     if searcher is None:
-        from packages.agent_builder.web import search_live_web as searcher
+        from backend.agent_builder.web import search_live_web as searcher
 
     query = str(state.get("query") or "")
     sub_question = _rewrite(name, query, llm, warnings, state)

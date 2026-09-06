@@ -1,10 +1,10 @@
 import time
 
-from packages.agent_builder.capex_agent import run_capex
-from packages.agent_builder.financial_agent import run_financial
-from packages.agent_builder.general_agent import run_general
-from packages.agent_builder.pm_agent import run_pm
-from packages.rag_engine.types import Chunk, ChunkMetadata, RetrieveResult
+from backend.agent_builder.capex_agent import run_capex
+from backend.agent_builder.financial_agent import run_financial
+from backend.agent_builder.general_agent import run_general
+from backend.agent_builder.pm_agent import run_pm
+from backend.rag_engine.types import Chunk, ChunkMetadata, RetrieveResult
 from shared.config import GENERAL_THIN_PRIMARY, LLM_TIMEOUT
 
 

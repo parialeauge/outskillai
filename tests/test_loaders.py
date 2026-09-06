@@ -3,8 +3,8 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from packages.rag_engine.ingestion import load_csv, load_pdf, load_urls_txt
-from packages.rag_engine.types import FailedUrl
+from backend.rag_engine.ingestion import load_csv, load_pdf, load_urls_txt
+from backend.rag_engine.types import FailedUrl
 
 
 def test_latin1_csv_ingests(tmp_path: Path):
@@ -17,7 +17,7 @@ def test_latin1_csv_ingests(tmp_path: Path):
 
 
 def test_urls_over_max_are_failed_urls(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    import packages.rag_engine.ingestion as ingestion
+    import backend.rag_engine.ingestion as ingestion
 
     monkeypatch.setattr(ingestion, "MAX_URLS", 1)
     path = tmp_path / "urls.txt"
@@ -32,7 +32,7 @@ def test_urls_over_max_are_failed_urls(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 def test_url_over_bytes_and_non_text_have_distinct_reasons(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    import packages.rag_engine.ingestion as ingestion
+    import backend.rag_engine.ingestion as ingestion
 
     monkeypatch.setattr(ingestion, "MAX_URL_BYTES", 8)
     path = tmp_path / "urls.txt"

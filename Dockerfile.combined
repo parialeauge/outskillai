@@ -26,15 +26,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-COPY requirements.txt pyproject.toml ./
+COPY requirements.txt pyproject.toml langgraph.json ./
 COPY apps ./apps
-COPY packages ./packages
+COPY backend ./backend
 COPY shared ./shared
 COPY sample_data ./sample_data
 COPY --from=ui /ui/dist /app/ui
 
 RUN pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir -e . \
+    && pip install --no-cache-dir --no-deps -e . \
     && python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
 
 ENV PYTHONUNBUFFERED=1 \

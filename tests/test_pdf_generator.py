@@ -1,7 +1,7 @@
 import pymupdf
 from reportlab.lib.pagesizes import A4
 
-from packages.agent_builder.pdf_generator import _html, _reportlab_pdf, render_pdf, safe_render
+from backend.agent_builder.pdf_generator import _html, _reportlab_pdf, render_pdf, safe_render
 
 TAIL = "UNIQUE_PDF_TAIL_ZX9"
 A4_WIDTH, A4_HEIGHT = A4
@@ -107,7 +107,7 @@ def test_safe_render_does_not_raise_when_renderer_fails(monkeypatch):
     def boom(envelope):
         raise RuntimeError("cairo missing")
 
-    monkeypatch.setattr("packages.agent_builder.pdf_generator.render_pdf", boom)
+    monkeypatch.setattr("backend.agent_builder.pdf_generator.render_pdf", boom)
     data, available, warnings = safe_render(_envelope())
     assert data is None
     assert available is False

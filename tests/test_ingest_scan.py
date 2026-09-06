@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from packages.rag_engine.ingestion import IngestRejected, dedupe_chunks_within_document, scan_folder
-from packages.rag_engine.types import Chunk, ChunkMetadata
+from backend.rag_engine.ingestion import IngestRejected, dedupe_chunks_within_document, scan_folder
+from backend.rag_engine.types import Chunk, ChunkMetadata
 
 
 def _chunk(document_id: str, content: str, chunk_id: str) -> Chunk:
@@ -37,7 +37,7 @@ def test_subdirectory_only_folder_is_bad_folder_and_mentions_flat(tmp_path: Path
 
 
 def test_over_max_files_raises_before_parsing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    import packages.rag_engine.ingestion as ingestion
+    import backend.rag_engine.ingestion as ingestion
 
     monkeypatch.setattr(ingestion, "MAX_FILES", 2)
     for i in range(3):
@@ -49,7 +49,7 @@ def test_over_max_files_raises_before_parsing(tmp_path: Path, monkeypatch: pytes
 
 
 def test_oversized_file_is_skipped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    import packages.rag_engine.ingestion as ingestion
+    import backend.rag_engine.ingestion as ingestion
 
     monkeypatch.setattr(ingestion, "MAX_FILE_MB", 1)
     (tmp_path / "ok.txt").write_text("hello")

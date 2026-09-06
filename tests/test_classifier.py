@@ -1,4 +1,4 @@
-from packages.rag_engine.classifier import classify_chunk, classify_document
+from backend.rag_engine.classifier import classify_chunk, classify_document
 
 
 def test_unmatched_document_is_uncategorized():

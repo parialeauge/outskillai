@@ -4,7 +4,7 @@ import json
 import re
 from collections import Counter
 
-from packages.rag_engine.types import Category
+from backend.rag_engine.types import Category
 from shared.schemas import CLASSIFIER_FORMAT
 
 KEYWORDS: dict[str, tuple[str, ...]] = {

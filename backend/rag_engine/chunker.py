@@ -1,5 +1,5 @@
 from shared.config import CHUNK_OVERLAP, CHUNK_SIZE, CSV_ROWS_PER_CHUNK_MAX
-from packages.rag_engine.types import Chunk, ChunkMetadata, Category, DocType
+from backend.rag_engine.types import Chunk, ChunkMetadata, Category, DocType
 
 
 def chunk_txt(

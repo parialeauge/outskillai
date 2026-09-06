@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    image: pactlify-backend:0.4.0
+    image: pactlify-backend:0.6.0
     ports:
       - "8000:8000"
     env_file:

@@ -4,9 +4,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from shared.config import MIN_PRIMARY, TOP_K
-from packages.rag_engine.classifier import classify_chunk, classify_document
-from packages.rag_engine.embeddings import Embedder
-from packages.rag_engine.ingestion import (
+from backend.rag_engine.classifier import classify_chunk, classify_document
+from backend.rag_engine.embeddings import Embedder
+from backend.rag_engine.ingestion import (
     URLS_NAME,
     IngestRejected,
     dedupe_chunks_within_document,
@@ -16,7 +16,7 @@ from packages.rag_engine.ingestion import (
     load_urls_txt,
     scan_folder,
 )
-from packages.rag_engine.types import (
+from backend.rag_engine.types import (
     Category,
     Chunk,
     DocumentInfo,
@@ -25,7 +25,7 @@ from packages.rag_engine.types import (
     IngestResult,
     RetrieveResult,
 )
-from packages.rag_engine.vectorstore import (
+from backend.rag_engine.vectorstore import (
     TableHandle,
     build_table,
     documents_from_handle,

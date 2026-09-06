@@ -7,8 +7,8 @@ from typing import Any
 
 import lancedb
 
-from packages.rag_engine.embeddings import EmbeddingModel
-from packages.rag_engine.types import Category, Chunk, ChunkMetadata
+from backend.rag_engine.embeddings import EmbeddingModel
+from backend.rag_engine.types import Category, Chunk, ChunkMetadata
 
 
 @dataclass
@@ -116,7 +116,7 @@ def update_document_category(handle: TableHandle, document_id: str, category: st
 
 
 def documents_from_handle(handle: TableHandle) -> list:
-    from packages.rag_engine.types import DocumentInfo
+    from backend.rag_engine.types import DocumentInfo
 
     frame = handle.table.to_pandas()
     docs: dict[str, DocumentInfo] = {}

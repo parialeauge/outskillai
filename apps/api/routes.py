@@ -11,11 +11,11 @@ from pydantic import BaseModel
 from apps.api.auth import require_admin
 from apps.api.paths import resolve_ingest_path
 from apps.api.session_registry import JobRegistry
-from packages.agent_builder.formatter import format_job
-from packages.agent_builder.graph import build_graph, run_job
-from packages.agent_builder.pdf_generator import safe_render
-from packages.rag_engine import IngestRejected, ingest, list_documents, set_category
-from packages.rag_engine.retriever import get_state
+from backend.agent_builder.formatter import format_job
+from backend.agent_builder.graph import build_graph, run_job
+from backend.agent_builder.pdf_generator import safe_render
+from backend.rag_engine import IngestRejected, ingest, list_documents, set_category
+from backend.rag_engine.retriever import get_state
 
 KB_EMPTY_MESSAGE = "Knowledge base not loaded — ask admin."
 PATCH_CATEGORIES = {"financial", "pm", "capex", "policy"}

@@ -1,4 +1,4 @@
-from packages.rag_engine.types import (
+from backend.rag_engine.types import (
     Chunk,
     ChunkMetadata,
     DocumentInfo,

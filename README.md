@@ -9,69 +9,46 @@ You need **two processes**: the FastAPI backend and the Vite frontend — or one
 One React app talks to a single-worker FastAPI process. FastAPI is thin glue. Retrieval lives in `rag_engine`. Routing, specialists, merge, and PDF live in `agent_builder`. The vector store is an in-process LanceDB temp directory and is discarded when the API stops.
 
 ```mermaid
-%%{init: {"flowchart": {"curve": "linear", "nodeSpacing": 60, "rankSpacing": 100, "padding": 24, "htmlLabels": true}}}%%
-flowchart LR
-  subgraph people [People]
-    direction TB
-    AdminUser[Admin]
-    ClientUser[Client]
-  end
+%%{init: {"flowchart": {"curve": "basis", "nodeSpacing": 38, "rankSpacing": 46, "padding": 10}}}%%
+flowchart TB
+  Admin(["Admin"]) --> AdminPage["/admin"]
+  Client(["Client"]) --> ClientPage["/client"]
 
-  subgraph ui [React UI]
-    direction TB
-    Landing["/ constellation"]
-    AppHub["/app mosaic hub"]
-    ClientPage["/client"]
-    AdminPage["/admin"]
-  end
-
-  subgraph api [FastAPI — one worker]
-    direction TB
-    Routes[Routes]
-    Jobs[Job registry]
-  end
-
-  subgraph rag [RAG Engine]
-    direction TB
-    Ingest[Ingest]
-    Store[(LanceDB temp)]
-    Retrieve[Retrieve + backfill]
-  end
-
-  subgraph agents [agent_builder]
-    direction TB
-    Parent[Parent router]
-    Specs["Specialists<br/>Financial · PM · CapEx · General"]
-    Merge[Merge + formatter]
-    PDF[PDF]
-  end
-
-  subgraph ext [External]
-    direction TB
-    OpenRouter[OpenRouter]
-    LiveWeb[Tavily / NewsAPI]
-    LangSmith[LangSmith]
-  end
-
-  AdminUser --> AdminPage
-  ClientUser --> Landing
-  ClientUser --> AppHub
-  ClientUser --> ClientPage
-  AdminPage -->|"Bearer token"| Routes
+  AdminPage -->|"Bearer token"| Routes["FastAPI routes<br/>apps/api · one worker"]
   ClientPage -->|"query + poll"| Routes
-  Routes --> Jobs
-  Routes --> Ingest
-  Ingest --> Store
-  Jobs --> Parent
-  Parent --> Specs
-  Parent --> OpenRouter
-  Parent -.-> LangSmith
-  Specs --> Retrieve
+
+  Routes -->|"ingest folder"| Ingest["Ingest<br/>chunk · embed · classify"]
+  Routes --> Jobs["Job registry<br/>in memory"]
+
+  Jobs --> Parent["Parent router"]
+  Parent --> Specs["Specialists<br/>Financial · PM · CapEx · General"]
+
+  Specs -->|"retrieve"| Retrieve["Retrieve + backfill"]
+  Specs --> Merge["Merge + formatter"]
+  Merge --> PDF["PDF"]
+  Specs -.->|"LLM · live web"| Ext["OpenRouter<br/>Tavily / NewsAPI"]
+
+  Ingest --> Store[("LanceDB temp")]
   Retrieve --> Store
-  Specs -.-> LiveWeb
-  Specs --> Merge
-  Merge --> PDF
+
+  classDef person fill:#e2e8f0,stroke:#64748b,color:#0f172a
+  classDef uiNode fill:#dbeafe,stroke:#60a5fa,color:#0f172a
+  classDef apiNode fill:#e0e7ff,stroke:#818cf8,color:#0f172a
+  classDef agentNode fill:#fef3c7,stroke:#f59e0b,color:#0f172a
+  classDef ragNode fill:#dcfce7,stroke:#22c55e,color:#0f172a
+  classDef extNode fill:#f8fafc,stroke:#cbd5e1,color:#475569
+
+  class Admin,Client person
+  class AdminPage,ClientPage uiNode
+  class Routes,Jobs apiNode
+  class Parent,Specs,Merge,PDF agentNode
+  class Ingest,Retrieve,Store ragNode
+  class Ext extNode
 ```
+
+Colour marks the owner: blue is the React UI, indigo `apps/api`, amber `agent_builder`, green `rag_engine`, grey the external services. The left branch is admin ingest; the right branch is a client question. `/` and `/app` are entry screens for the same app and are omitted above. Dotted lines are optional calls; LangSmith tracing attaches to the same agent path when enabled.
+
+
 
 The client downloads the report with `GET /report/{job_id}/pdf` (WeasyPrint, ReportLab fallback). Activation order is always **financial → pm → capex → general**. Live web runs only on the **primary** (in-category) hit count: Financial / PM / CapEx when `primary_count == 0`; General when primary is thin or the question needs current info.
 
@@ -79,10 +56,11 @@ The client downloads the report with `GET /report/{job_id}/pdf` (WeasyPrint, Rep
 
 ```mermaid
 sequenceDiagram
+  autonumber
   actor Admin
   participant UI as Admin screen
   participant API as FastAPI
-  participant RAG as RAG Engine
+  participant RAG as rag_engine
   participant DB as LanceDB temp
 
   Admin->>UI: Enter ADMIN_TOKEN and folder path
@@ -105,6 +83,7 @@ Inside Docker, the sample folder path is **`/app/sample_data`** (not your laptop
 
 ```mermaid
 sequenceDiagram
+  autonumber
   actor Client
   participant UI as Client screen
   participant API as FastAPI
@@ -199,7 +178,7 @@ conda deactivate   # skip if conda is not active
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
-python -m pip install -e .
+python -m pip install --no-deps -e .
 python -m uvicorn apps.api.main:app --workers 1 --host 127.0.0.1 --port 8000
 ```
 
@@ -213,7 +192,7 @@ python -m uvicorn apps.api.main:app --workers 1 --host 127.0.0.1 --port 8000
 
 Always start the API with `python -m uvicorn` from the venv. A global `uvicorn` on PATH (especially Anaconda's) will not see these packages.
 
-`requirements.txt` is runtime only; `requirements-dev.txt` adds pytest. The editable install (`-e .`) is still required so `apps`, `packages`, and `shared` import.
+`requirements.txt` is the pinned runtime set; `pyproject.toml` uses the same pins. `requirements-dev.txt` adds pytest. The editable install (`-e .`) is still required so `apps`, `backend`, and `shared` import. Docker images install `requirements.txt` then `pip install --no-deps -e .` so the editable step cannot re-resolve versions.
 
 Use **one worker**. The knowledge base and job registry live in that process. `--reload` or `--workers 2` will look like a random empty KB.
 
@@ -694,6 +673,8 @@ Tracing is **optional**. If LangSmith is down or misconfigured, queries must sti
 
 LangGraph records the parent router and specialist nodes when tracing is on. OpenRouter calls go through a raw HTTP wrapper, so you may see graph/node spans without a separate “LLM provider” row for every model call.
 
+The compiled graph that Studio and `langgraph dev` load is `backend/agent_builder/studio.py:graph` (all four specialists). The CLI config is `langgraph.json` at this directory root.
+
 ### 5.1 Create a LangSmith project
 
 1. Open [https://smith.langchain.com](https://smith.langchain.com) and sign in.
@@ -726,50 +707,103 @@ LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com
 
 Leave `LANGSMITH_TRACING=false` (and `LANGCHAIN_TRACING_V2=false`) if you do not want traces.
 
-### 5.3 Restart the API
+### 5.3 Confirm tracing env and validate the graph config
 
-Env is read at process start (`load_dotenv()` in `apps/api/main.py`). Stop uvicorn and start it again from `outskillai/`:
+Env is read at process start (`load_dotenv()` in `apps/api/main.py`). From `outskillai/`:
+
+```bash
+source .venv/bin/activate
+python -c "from dotenv import load_dotenv; load_dotenv(); import os; print(os.getenv('LANGSMITH_TRACING') or os.getenv('LANGCHAIN_TRACING_V2'))"
+# true
+```
+
+`langgraph.json` must exist in this directory (it is committed). Validate it:
+
+```bash
+langgraph validate
+# Configuration file .../langgraph.json is valid. (1 graph found)
+```
+
+If `langgraph` is missing:
+
+```bash
+python -m pip install "langgraph-cli[inmem]"
+```
+
+The file points at one compiled graph:
+
+```json
+{
+  "python_version": "3.12",
+  "dependencies": ["."],
+  "graphs": {
+    "pactlify": "./backend/agent_builder/studio.py:graph"
+  },
+  "env": ".env"
+}
+```
+
+`--allow-blocking` is required: specialists retrieve and call OpenRouter synchronously.
+
+### 5.4 Run LangGraph Studio (`langgraph dev`)
+
+This is the local observation server. It reads `langgraph.json` + `.env` and opens Studio against project `pactlify`.
+
+```bash
+source .venv/bin/activate
+langgraph dev --allow-blocking
+```
+
+Default listen: **http://127.0.0.1:2024**. Studio UI: [https://smith.langchain.com/studio](https://smith.langchain.com/studio) (it attaches to that local server). Skip the auto-open with `--no-browser`.
+
+In Studio, select graph **pactlify**. Input:
+
+```json
+{
+  "query": "What is the project timeline and the financial impact of the Q1 budget?"
+}
+```
+
+Specialists need a loaded KB (`handle`). Studio-only runs without ingest still trace `route` / specialist nodes; retrieve then fails and the node records a warning. For a full retrieve → merge trace, ingest `sample_data` through the FastAPI Admin first (same process memory is **not** shared with `langgraph dev`). Studio observation is the graph itself; FastAPI observation is §5.5.
+
+### 5.5 Generate a trace from the FastAPI app
+
+1. Restart uvicorn after editing `.env` (env is not hot-reloaded):
 
 ```bash
 source .venv/bin/activate
 python -m uvicorn apps.api.main:app --workers 1 --host 127.0.0.1 --port 8000
 ```
 
-Confirm the process can see tracing (should print `true`):
-
-```bash
-source .venv/bin/activate
-python -c "from dotenv import load_dotenv; load_dotenv(); import os; print(os.getenv('LANGSMITH_TRACING') or os.getenv('LANGCHAIN_TRACING_V2'))"
-```
-
-### 5.4 Generate a trace
-
-1. Keep the frontend on http://localhost:5173 and the API on http://localhost:8000.
-2. Load `sample_data` in Admin if the KB is empty.
-3. On Client, ask:
+2. Keep the frontend on http://localhost:5173 and the API on http://localhost:8000.
+3. Load `sample_data` in Admin if the KB is empty.
+4. On Client, ask:
 
 ```text
 What is the project timeline and the financial impact of the Q1 budget?
 ```
 
-4. Wait until the job is `COMPLETED` (or `FAILED` — failed runs still trace).
+5. Wait until the job is `COMPLETED` (or `FAILED` — failed runs still trace).
 
-### 5.5 Find it in LangSmith
+### 5.6 Find it in LangSmith
 
 1. Open [https://smith.langchain.com](https://smith.langchain.com).
 2. Select project **pactlify** (or `LANGSMITH_PROJECT`).
-3. Open the newest run. You should see the LangGraph path: `route` → specialist nodes (`financial` / `pm` / …) → `merge`.
+3. Open the newest run. You should see the LangGraph path: `route` → specialist nodes (`financial` / `pm` / `capex` / `general`) → `merge`.
 4. Click a node for inputs/outputs and timing.
 
-### 5.6 If you see nothing
+### 5.7 If you see nothing
 
 | Check | What to do |
 |---|---|
-| Tracing still `false` | Set `LANGSMITH_TRACING=true` (or `LANGCHAIN_TRACING_V2=true`) and **restart** uvicorn |
+| Tracing still `false` | Set `LANGSMITH_TRACING=true` (or `LANGCHAIN_TRACING_V2=true`) and **restart** uvicorn / `langgraph dev` |
+| `langgraph.json` missing | File must live in `outskillai/` next to `pyproject.toml`. Run `langgraph validate` |
+| `langgraph: command not found` | `python -m pip install "langgraph-cli[inmem]"` |
+| `Path 'langgraph.json' does not exist` | `cd` to `outskillai/` before `langgraph dev` |
 | Wrong file | Keys must be in `outskillai/.env`, not `frontend/.env` |
 | No API key | `LANGSMITH_API_KEY` or `LANGCHAIN_API_KEY` must be set |
 | Region | Set `LANGSMITH_ENDPOINT` for EU/other regions |
-| No Client job | Ingest + Ask must actually run the graph (empty KB never traces a query) |
+| No Client job | Ingest + Ask must actually run the graph (empty KB never traces a query from the UI) |
 | Project filter | In the UI, select the same name as `LANGSMITH_PROJECT` |
 
 Tracing must never block an answer. If LangSmith is unreachable, the job still finishes in the UI.
@@ -789,7 +823,7 @@ npx tsc --noEmit
 
 ## 7. Packaging
 
-Three Docker packages. Build them from this directory (`outskillai/`). Copy `.env.example` to `.env` first (backend and combined need it). First backend/combined build downloads MiniLM and PyTorch — expect several minutes.
+Three Docker packages. Build them from this directory (`outskillai/`). Copy `.env.example` to `.env` first (backend and combined need it). First backend/combined build downloads MiniLM and PyTorch — expect several minutes. Both API images copy `langgraph.json` so the Studio graph id `pactlify` is in the image; set `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` in `.env` to send traces from the running container.
 
 In Admin, the sample corpus path inside a container is:
 
@@ -808,10 +842,10 @@ docker compose -f docker-compose.backend.yml up --build
 Equivalent:
 
 ```bash
-docker build -f Dockerfile.backend -t pactlify-backend:0.4.0 .
+docker build -f Dockerfile.backend -t pactlify-backend:0.6.0 .
 docker run --rm --env-file .env -e ALLOWED_INGEST_ROOT=/app \
   -e CORS_ORIGIN=http://localhost:5173 \
-  -p 8000:8000 pactlify-backend:0.4.0
+  -p 8000:8000 pactlify-backend:0.6.0
 ```
 
 Still **one worker**. The KB dies when the container stops.
@@ -827,9 +861,9 @@ docker compose -f docker-compose.frontend.yml up --build
 Equivalent:
 
 ```bash
-docker build -f frontend/Dockerfile -t pactlify-frontend:0.4.0 \
+docker build -f frontend/Dockerfile -t pactlify-frontend:0.6.0 \
   --build-arg VITE_API_BASE_URL=http://localhost:8000 .
-docker run --rm -p 5173:80 pactlify-frontend:0.4.0
+docker run --rm -p 5173:80 pactlify-frontend:0.6.0
 ```
 
 ### 7.3 Combined frontend and backend
@@ -843,19 +877,19 @@ docker compose up --build
 Equivalent:
 
 ```bash
-docker build -f Dockerfile.combined -t pactlify:0.4.0 .
+docker build -f Dockerfile.combined -t pactlify:0.6.0 .
 docker run --rm --env-file .env -e ALLOWED_INGEST_ROOT=/app \
   -e CORS_ORIGIN=http://localhost:8000 -e STATIC_DIR=/app/ui \
-  -p 8000:8000 pactlify:0.4.0
+  -p 8000:8000 pactlify:0.6.0
 ```
 
 Open http://localhost:8000 — constellation `/`, mosaic `/app`, `/client`, and `/admin` are the same app. No second process.
 
 | Package | Image | Listen | UI | API |
 |---|---|---|---|---|
-| Backend | `pactlify-backend:0.4.0` | `:8000` | no | yes |
-| Frontend | `pactlify-frontend:0.4.0` | `:5173` → nginx `:80` | yes | talks to host `:8000` |
-| Combined | `pactlify:0.4.0` | `:8000` | yes | yes, same origin |
+| Backend | `pactlify-backend:0.6.0` | `:8000` | no | yes |
+| Frontend | `pactlify-frontend:0.6.0` | `:5173` → nginx `:80` | yes | talks to host `:8000` |
+| Combined | `pactlify:0.6.0` | `:8000` | yes | yes, same origin |
 
 ---
 
@@ -886,7 +920,7 @@ Backend `.env` (from `.env.example`):
 | `OPENROUTER_API_KEY` | for real answers | Routing + specialist synthesis |
 | `OPENROUTER_MODEL` | no | Default `openai/gpt-4o-mini` |
 | `TAVILY_API_KEY` / `NEWSAPI_API_KEY` | no | Live web |
-| `LANGSMITH_TRACING` / `LANGCHAIN_TRACING_V2` | no | `true` to send LangGraph traces |
+| `LANGSMITH_TRACING` / `LANGCHAIN_TRACING_V2` | no | `true` to send LangGraph traces (`langgraph.json` + FastAPI) |
 | `LANGSMITH_API_KEY` / `LANGCHAIN_API_KEY` | for tracing | LangSmith API key (`lsv2_pt_…`) |
 | `LANGSMITH_PROJECT` / `LANGCHAIN_PROJECT` | no | Default in `.env.example`: `pactlify` |
 | `LANGSMITH_ENDPOINT` | no | Only if your LangSmith workspace is not US |

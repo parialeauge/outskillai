@@ -1,5 +1,5 @@
-from packages.agent_builder.formatter import format_job
-from packages.rag_engine.types import Chunk, ChunkMetadata
+from backend.agent_builder.formatter import format_job
+from backend.rag_engine.types import Chunk, ChunkMetadata
 
 
 def _chunk(chunk_id: str, content: str, type_: str = "txt") -> Chunk:

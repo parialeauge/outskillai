@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from packages.agent_builder.parent_agent import ACTIVATION_ORDER
-from packages.rag_engine.types import Chunk
+from backend.agent_builder.parent_agent import ACTIVATION_ORDER
+from backend.rag_engine.types import Chunk
 
 QUOTE_LIMIT = 200
 

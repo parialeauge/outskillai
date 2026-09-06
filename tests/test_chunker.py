@@ -1,4 +1,4 @@
-from packages.rag_engine.chunker import chunk_csv, chunk_pdf, chunk_txt
+from backend.rag_engine.chunker import chunk_csv, chunk_pdf, chunk_txt
 
 
 def test_pdf_chunk_does_not_span_pages():

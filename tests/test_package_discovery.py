@@ -4,8 +4,8 @@ import importlib
 def test_package_names_are_importable():
     modules = [
         "apps.api",
-        "packages.rag_engine",
-        "packages.agent_builder",
+        "backend.rag_engine",
+        "backend.agent_builder",
         "shared",
     ]
 

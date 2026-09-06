@@ -1,5 +1,5 @@
-from packages.rag_engine.types import Chunk, ChunkMetadata
-from packages.rag_engine.vectorstore import (
+from backend.rag_engine.types import Chunk, ChunkMetadata
+from backend.rag_engine.vectorstore import (
     build_table,
     connect_kb,
     distance_to_relevance,

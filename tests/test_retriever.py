@@ -1,6 +1,6 @@
 import pytest
 
-from packages.rag_engine.retriever import ingest, reset_state, retrieve
+from backend.rag_engine.retriever import ingest, reset_state, retrieve
 from tests.fake_embedder import FakeEmbedder
 
 

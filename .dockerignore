@@ -15,5 +15,11 @@ frontend/node_modules
 frontend/dist
 planning
 docs
+review-and-helper
+
+# Never copied into either image — kept out of the build context
+tests
+scripts
+
 *.md
 !README.md

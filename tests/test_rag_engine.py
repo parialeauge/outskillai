@@ -3,8 +3,8 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from packages.rag_engine.retriever import ingest, reset_state
-from packages.rag_engine.ingestion import IngestRejected
+from backend.rag_engine.retriever import ingest, reset_state
+from backend.rag_engine.ingestion import IngestRejected
 from tests.fake_embedder import FakeEmbedder
 
 
@@ -55,7 +55,7 @@ def test_mixed_folder_ingest_populates_documents_and_failures(tmp_path: Path):
 def test_csv_chunks_keep_header_and_row_range(tmp_path: Path):
     (tmp_path / "budget.csv").write_text("region,revenue\neast,10\nwest,20\n")
     result = ingest(str(tmp_path), embedder=FakeEmbedder())
-    from packages.rag_engine.retriever import retrieve
+    from backend.rag_engine.retriever import retrieve
 
     hits = retrieve("shared", "revenue", category="uncategorized")
     csv = [c for c in hits.chunks if c.metadata.type == "csv"]
@@ -68,7 +68,7 @@ def test_csv_chunks_keep_header_and_row_range(tmp_path: Path):
 def test_pdf_chunks_do_not_span_pages(tmp_path: Path):
     _pdf(tmp_path / "two.pdf", ["AAAA page one timeline", "BBBB page two timeline"])
     ingest(str(tmp_path), embedder=FakeEmbedder(), classify_document_fn=lambda text: "pm")
-    from packages.rag_engine.retriever import retrieve
+    from backend.rag_engine.retriever import retrieve
 
     hits = retrieve("shared", "timeline", category="pm")
     for chunk in hits.chunks:
@@ -107,7 +107,7 @@ def test_mixed_document_chunk_categories(tmp_path: Path):
     pm = ("timeline milestone risk resource allocation " * 80).strip()
     (tmp_path / "mixed.txt").write_text(financial + "\n" + pm)
     ingest(str(tmp_path), embedder=FakeEmbedder(), classify_document_fn=lambda text: "pm")
-    from packages.rag_engine.retriever import retrieve
+    from backend.rag_engine.retriever import retrieve
 
     all_hits = retrieve("shared", "project", category=None, top_k=20)
     cats = {c.metadata.category for c in all_hits.chunks}
@@ -156,7 +156,7 @@ def test_stamp_uncategorized_rejects_without_swap(tmp_path: Path):
     with pytest.raises(IngestRejected) as exc:
         ingest(str(tmp_path), stamp="uncategorized", embedder=FakeEmbedder())
     assert exc.value.code == "bad_folder"
-    from packages.rag_engine.retriever import list_documents
+    from backend.rag_engine.retriever import list_documents
 
     assert list_documents("shared") == []
 
@@ -170,7 +170,7 @@ def test_subdirectory_only_rejected(tmp_path: Path):
 
 
 def test_max_files_and_max_file_mb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    import packages.rag_engine.ingestion as ingestion
+    import backend.rag_engine.ingestion as ingestion
 
     monkeypatch.setattr(ingestion, "MAX_FILES", 2)
     for i in range(3):
@@ -190,7 +190,7 @@ def test_max_files_and_max_file_mb(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
 
 def test_urls_failures_have_distinct_reasons(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    import packages.rag_engine.ingestion as ingestion
+    import backend.rag_engine.ingestion as ingestion
 
     monkeypatch.setattr(ingestion, "MAX_URLS", 1)
     monkeypatch.setattr(ingestion, "MAX_URL_BYTES", 8)

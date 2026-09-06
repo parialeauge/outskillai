@@ -12,8 +12,8 @@ from shared.config import (
     URL_FETCH_CONCURRENCY,
     URL_FETCH_TIMEOUT,
 )
-from packages.rag_engine.chunker import chunk_csv, chunk_pdf, chunk_txt
-from packages.rag_engine.types import Chunk, FailedFile, FailedUrl
+from backend.rag_engine.chunker import chunk_csv, chunk_pdf, chunk_txt
+from backend.rag_engine.types import Chunk, FailedFile, FailedUrl
 
 INGESTABLE_SUFFIXES = {".pdf", ".csv", ".txt"}
 URLS_NAME = "urls.txt"

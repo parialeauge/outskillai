@@ -1,9 +1,9 @@
 import time
 
-from packages.agent_builder.graph import build_graph, run_job
-from packages.agent_builder.pm_agent import run_pm
-from packages.agent_builder.specialist import run_with_timeout
-from packages.rag_engine.types import RetrieveResult
+from backend.agent_builder.graph import build_graph, run_job
+from backend.agent_builder.pm_agent import run_pm
+from backend.agent_builder.specialist import run_with_timeout
+from backend.rag_engine.types import RetrieveResult
 from shared.config import AGENT_TIMEOUT, JOB_TIMEOUT
 
 
@@ -110,8 +110,8 @@ def test_graph_does_not_nest_a_second_specialist_timeout_thread(monkeypatch):
         calls.append(timeout)
         return real(fn, timeout)
 
-    monkeypatch.setattr("packages.agent_builder.graph.run_with_timeout", spy)
-    monkeypatch.setattr("packages.agent_builder.specialist.run_with_timeout", spy)
+    monkeypatch.setattr("backend.agent_builder.graph.run_with_timeout", spy)
+    monkeypatch.setattr("backend.agent_builder.specialist.run_with_timeout", spy)
 
     def retrieve_fn(*args, **kwargs):
         return RetrieveResult(chunks=[], primary_count=1)
