@@ -32,3 +32,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["apps*", "backend*", "shared*"]
+
+[tool.vercel]
+entrypoint = "apps.api.main:app"
+
+[tool.vercel.scripts]
+build = "cd frontend && npm ci && npm run build"
+

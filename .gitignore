@@ -32,6 +32,9 @@ htmlcov/
 # Local SDD tracker
 .superpowers/
 
+# Vercel
+.vercel/
+
 # OS / editor
 .DS_Store
 Thumbs.db
