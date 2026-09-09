@@ -121,6 +121,80 @@ sequenceDiagram
   end
 ```
 
+Screenshots of every page: [UI presentation](#ui-presentation).
+
+---
+
+## UI presentation
+
+One React app, four routes. `/` is the constellation landing (no header). `/app`, `/admin`, and `/client` share chrome: wordmark **Pactlify** (back to `/`), **Admin | Client**, and a chip that reads `KB empty`, `KB loaded · N docs`, or `Job running`.
+
+| Route | Page | What it does |
+|---|---|---|
+| `/` | Landing | Marketing hero and the Client → PDF pipeline |
+| `/app` | Mosaic hub | Pick Admin or Client; agent tiles do not navigate |
+| `/admin` | Load documents | Token, folder or files, category stamp, document table |
+| `/client` | Ask the corpus | Question, then Answer / Timeline / Sources + PDF |
+
+### Landing — `/`
+
+Pale canvas, lime **Start building**, drifting node network. Headline is smaller **Ask the** over **Corpus.** Trust chips: Financial, PM, CapEx, General, Cited PDF. Pipeline: Client → UI Interface → Multi-Agent Worker → Tools → RAG Engine → Response and Report. No Admin | Client header.
+
+![Pactlify constellation landing with Ask the Corpus headline and pipeline](docs/ui/landing.png)
+
+- **Start building** opens `/app`
+- **Load documents** opens `/admin`
+
+### Mosaic hub — `/app`
+
+Four specialist tiles (Financial, PM, CapEx, General) are labels only. The two large tiles navigate. Status tile and header chip both show whether the KB is loaded.
+
+![Mosaic hub with Ask the corpus, Load documents, and four agent tiles](docs/ui/hub.png)
+
+- **Ask the corpus** → `/client`
+- **Load documents** → `/admin`
+- Footer: *Admin loads a folder. Clients only ask. No upload on this page.*
+
+### Admin — `/admin`
+
+Token first. It is held in memory for this tab — not a login. Wrong token returns the prompt.
+
+![Admin token prompt with Continue](docs/ui/admin-token.png)
+
+After Continue: folder path **replaces** the KB; file uploads **add**. Category cards stamp the ingest (default **Auto-detect / unmarked**). The table lists id, name, category, type, chunks. Failures print **under** the table, not as success rows. Header chip becomes `KB loaded · N docs`. Restart the API and the table is empty again.
+
+![Admin after ingest: category cards, document table, and KB loaded chip](docs/ui/admin.png)
+
+| Card | Stamp |
+|---|---|
+| Financial | budgets, ROI, operating cost |
+| Project Manager | timeline, milestones, risks |
+| CapEx | capital spend and assets |
+| Policy | stamp the whole folder as policy |
+| Auto-detect / unmarked | classifier decides (default) |
+
+Docker / Render sample path is **`/app/sample_data`**. A laptop path fails against those hosts.
+
+### Client — `/client`
+
+Split layout. Left: question. Right: **Answer**, **Timeline**, **Sources**. **Submit** stays disabled until the KB is loaded (`Knowledge base not loaded — ask admin.`). The question text stays in the field after submit. Chrome chip shows `Job running` until the job finishes.
+
+![Client workspace with empty Answer tab and KB loaded](docs/ui/client.png)
+
+**Answer** — summary, per-agent sections, key points, citation chips like `[c1]`. Click a chip to jump to **Sources**. **Download PDF** enables when the job is `completed` and a report exists (`pactlify-{job_id}.pdf`).
+
+![Client Answer tab with Financial and Project Manager sections](docs/ui/client-answer.png)
+
+**Timeline** — one row per activated specialist: status, chunks retrieved, primary hit count, live-web flag.
+
+![Client Timeline tab with financial and pm rows marked done](docs/ui/client-timeline.png)
+
+**Sources** — citation id, file, `type · category · page/rows`, and the quote. A `CROSS` badge means the chunk was backfilled from outside that agent’s category.
+
+![Client Sources tab with budget.csv and charter.pdf citations](docs/ui/client-sources.png)
+
+Walkthrough of ingest → ask → PDF: [§4](#4-sample-walkthrough).
+
 ## Prerequisites
 
 - Python **3.11 or 3.12** (not Anaconda Python 3.13 — `torch` will not install)
@@ -583,7 +657,7 @@ npm install
 npm run dev
 ```
 
-Vite serves **http://localhost:5173**.
+Vite serves **http://localhost:5173**. Page-by-page screenshots: [UI presentation](#ui-presentation).
 
 `frontend/.env` should keep:
 
@@ -599,7 +673,7 @@ Optional: `VITE_USE_FIXTURES=true` runs the UI against `src/fixtures` with no AP
 
 ## 4. Sample walkthrough
 
-Use two browser tabs if you like, or the **Admin | Client** toggle in the header. Wordmark **Pactlify** returns to the constellation landing at `/`. **Start building** opens `/app`. The same ingest → query → PDF path over HTTP is in [§2](#2-api-endpoints).
+Use two browser tabs if you like, or the **Admin | Client** toggle in the header. Wordmark **Pactlify** returns to the constellation landing at `/`. **Start building** opens `/app`. Screenshots of each page: [UI presentation](#ui-presentation). The same ingest → query → PDF path over HTTP is in [§2](#2-api-endpoints).
 
 ### A. Marketing, then mosaic hub
 
